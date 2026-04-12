@@ -29,6 +29,7 @@ class Settings(BaseSettings):
 
     # Document Ingestion
     watch_folder: str = "./data/watch"
+    data_dir: str = "./data"
     max_chunk_size: int = 512
     chunk_overlap: int = 50
 
