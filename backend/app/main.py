@@ -15,9 +15,16 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan context manager."""
+    """Application lifespan — initialise and tear down shared services."""
+    from app import services
+
     logger = logging.getLogger(__name__)
-    logger.info("Application startup")
+    logger.info("Application startup — initialising services")
+
+    # Boot all singletons (vector store, embedder, reranker, LLM).
+    # The cross-encoder downloads its weights on first run (~85 MB, then cached).
+    services.init(settings)
+    logger.info("Services ready")
 
     yield
 
