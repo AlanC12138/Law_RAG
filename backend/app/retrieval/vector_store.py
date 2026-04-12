@@ -117,6 +117,52 @@ class QdrantVectorStore:
         self.client.upsert(collection_name=COLLECTION_NAME, points=points)
         logger.debug(f"Upserted {len(points)} chunks into Qdrant")
 
+    def scroll_by_matter(self, matter_id: str) -> list[dict]:
+        """Retrieve the payload of every chunk belonging to a matter.
+
+        Used by the BM25 retriever to build a keyword index scoped to
+        the matter being queried. Paginates automatically so large matters
+        are handled correctly.
+
+        Args:
+            matter_id: The matter whose chunks should be returned.
+
+        Returns:
+            List of payload dicts (same fields stored by upsert_chunks).
+        """
+        matter_filter = Filter(
+            must=[
+                FieldCondition(
+                    key="matter_id",
+                    match=MatchValue(value=matter_id),
+                )
+            ]
+        )
+
+        all_payloads: list[dict] = []
+        offset = None
+
+        while True:
+            results, next_offset = self.client.scroll(
+                collection_name=COLLECTION_NAME,
+                scroll_filter=matter_filter,
+                limit=256,          # fetch in pages of 256
+                offset=offset,
+                with_payload=True,
+                with_vectors=False, # payloads only — no need to load vectors
+            )
+            for point in results:
+                payload = dict(point.payload)
+                payload["_qdrant_id"] = str(point.id)
+                all_payloads.append(payload)
+
+            if next_offset is None:
+                break
+            offset = next_offset
+
+        logger.debug(f"Scrolled {len(all_payloads)} chunks for matter {matter_id}")
+        return all_payloads
+
     def delete_document(self, document_id: str) -> None:
         """Remove all chunks belonging to a document.
 
