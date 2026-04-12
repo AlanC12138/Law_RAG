@@ -2,16 +2,13 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum as PyEnum
-from typing import TYPE_CHECKING
+from typing import Any
 
 from sqlalchemy import Enum, ForeignKey, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from app.db.base import Base
-
-if TYPE_CHECKING:
-    from typing import Any
 
 
 class UserRole(str, PyEnum):

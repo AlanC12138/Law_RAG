@@ -79,6 +79,30 @@ async def get_current_active_user(
     return current_user
 
 
+async def require_partner(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> User:
+    """Dependency that enforces partner-only access.
+
+    Use this on any endpoint that should be restricted to partners,
+    e.g. user management, matter creation, and member administration.
+
+    Returns:
+        The current user if they are a partner.
+
+    Raises:
+        HTTPException: 403 if the user is not a partner.
+    """
+    from app.db.models import UserRole
+
+    if current_user.role != UserRole.PARTNER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This action requires partner role",
+        )
+    return current_user
+
+
 async def check_matter_access(
     matter_id: str,
     current_user: Annotated[User, Depends(get_current_active_user)],

@@ -3,11 +3,14 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
+
+    model_config = ConfigDict(env_file=".env", case_sensitive=False)
 
     # LLM Configuration
     openai_api_key: str
@@ -33,14 +36,15 @@ class Settings(BaseSettings):
     max_chunk_size: int = 512
     chunk_overlap: int = 50
 
+    # Seed admin user (created on first startup if no users exist)
+    admin_email: str = "admin@lawfirm.local"
+    admin_password: str = "changeme"
+    admin_name: str = "Admin Partner"
+
     # Application
-    app_env: Literal["development", "staging", "production"] = "development"
+    app_env: Literal["development", "staging", "production", "test"] = "development"
     log_level: str = "INFO"
     cors_origins: str = "http://localhost:5173"
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
 
     def get_cors_origins(self) -> list[str]:
         """Parse comma-separated CORS origins."""

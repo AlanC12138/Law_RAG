@@ -76,6 +76,13 @@ jobs:
         run: cd backend && poetry install
 
       - name: Run tests
+        env:
+          # Minimal env required by app/config.py during import
+          OPENAI_API_KEY: sk-test-placeholder
+          SECRET_KEY: test-secret-key-for-ci-at-least-32-chars!!
+          DATABASE_URL: sqlite+aiosqlite:///:memory:
+          QDRANT_PATH: /tmp/qdrant_test
+          APP_ENV: test
         run: cd backend && poetry run pytest --asyncio-mode=auto -v
 
   type-check:

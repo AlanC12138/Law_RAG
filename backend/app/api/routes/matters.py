@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_current_active_user, check_matter_access
+from app.api.dependencies import check_matter_access, get_current_active_user, require_partner
 from app.db.models import Matter, MatterMembership, User, UserRole
 from app.db.session import get_db
 
@@ -252,3 +252,60 @@ async def add_matter_member(
     logger.info(f"User {target_user.email} added to matter {matter_id}")
 
     return {"message": "User added to matter successfully"}
+
+
+@router.delete("/{matter_id}/members/{user_id}", status_code=status.HTTP_200_OK)
+async def remove_matter_member(
+    matter_id: str,
+    user_id: str,
+    current_user: Annotated[User, Depends(require_partner)],
+    _: Annotated[str, Depends(check_matter_access)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict[str, str]:
+    """Remove a user from a matter (partner only).
+
+    The user loses access to all documents and query history within the
+    matter. Existing QueryLog rows are retained for audit purposes.
+
+    Args:
+        matter_id: Matter ID.
+        user_id:   User to remove.
+
+    Returns:
+        Success message.
+
+    Raises:
+        HTTPException: 400 if trying to remove the last member, 404 if
+                       the membership doesn't exist.
+    """
+    membership_result = await db.execute(
+        select(MatterMembership).where(
+            and_(
+                MatterMembership.user_id == user_id,
+                MatterMembership.matter_id == matter_id,
+            )
+        )
+    )
+    membership = membership_result.scalar_one_or_none()
+
+    if membership is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User is not a member of this matter",
+        )
+
+    # Guard: don't allow removing the last member
+    count_result = await db.execute(
+        select(MatterMembership).where(MatterMembership.matter_id == matter_id)
+    )
+    if len(count_result.scalars().all()) <= 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot remove the last member from a matter",
+        )
+
+    await db.delete(membership)
+    await db.commit()
+
+    logger.info(f"User {user_id} removed from matter {matter_id} by {current_user.email}")
+    return {"message": "User removed from matter"}
