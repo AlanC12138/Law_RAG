@@ -49,13 +49,24 @@ class QdrantVectorStore:
     return chunks belonging to the requested matter.
     """
 
-    def __init__(self, path: str) -> None:
-        """Initialise the vector store in embedded (local) mode.
+    def __init__(self, path: str, url: str | None = None, api_key: str | None = None) -> None:
+        """Initialise the vector store.
+
+        When *url* is provided the client connects to a Qdrant server
+        (recommended for Docker/production deployments).  Otherwise it falls
+        back to embedded (in-process) mode using *path*.
 
         Args:
-            path: Directory path for Qdrant's on-disk storage.
+            path:    Local directory for embedded Qdrant storage.
+            url:     Optional Qdrant server URL, e.g. ``http://qdrant:6333``.
+            api_key: Optional API key for the Qdrant server.
         """
-        self.client = QdrantClient(path=path)
+        if url:
+            logger.info(f"Connecting to Qdrant server at {url}")
+            self.client = QdrantClient(url=url, api_key=api_key or None)
+        else:
+            logger.info(f"Using Qdrant in embedded mode at {path}")
+            self.client = QdrantClient(path=path)
         self._ensure_collection()
 
     # ------------------------------------------------------------------

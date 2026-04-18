@@ -1,6 +1,9 @@
 FROM python:3.11-slim as builder
 
-WORKDIR /build
+# Use /opt as WORKDIR so poetry creates the venv at /opt/.venv (in-project mode).
+# That makes every script shebang read #!/opt/.venv/bin/python — the same path
+# we'll use in the final stage, avoiding the "exec: no such file" shebang mismatch.
+WORKDIR /opt
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -9,10 +12,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN pip install --user --no-cache-dir poetry
 
-COPY pyproject.toml poetry.lock* ./
+COPY pyproject.toml poetry.lock* /opt/
 
 RUN /root/.local/bin/poetry config virtualenvs.in-project true && \
-    /root/.local/bin/poetry install --no-dev --no-root
+    /root/.local/bin/poetry install --without dev --no-root
 
 FROM python:3.11-slim
 
@@ -24,9 +27,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONUNBUFFERED=1
-ENV PATH="/app/.venv/bin:$PATH"
+# /opt/.venv is outside /app — bind mounts on /app won't touch it
+ENV PATH="/opt/.venv/bin:$PATH"
 
-COPY --from=builder /build/.venv /app/.venv
+COPY --from=builder /opt/.venv /opt/.venv
 
 COPY . .
 

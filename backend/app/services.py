@@ -47,7 +47,11 @@ def init(settings: Settings) -> None:
     """
     global vector_store, embedder, reranker, hybrid_retriever, llm
 
-    vector_store = QdrantVectorStore(path=settings.qdrant_path)
+    vector_store = QdrantVectorStore(
+        path=settings.qdrant_path,
+        url=settings.qdrant_url,
+        api_key=settings.qdrant_api_key,
+    )
 
     embedder = OpenAIEmbeddingProvider(
         model=settings.embedding_model,

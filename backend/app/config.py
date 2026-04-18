@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./data/law_rag.db"
 
     # Qdrant Vector Store
+    # Set qdrant_url to use server mode (e.g. http://qdrant:6333 in Docker).
+    # Leave unset to fall back to embedded/local mode using qdrant_path.
+    qdrant_url: str | None = None
     qdrant_path: str = "./data/qdrant_storage"
     qdrant_api_key: str | None = None
 

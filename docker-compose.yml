@@ -30,6 +30,7 @@ services:
       - LLM_MODEL=${LLM_MODEL:-gpt-4o}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-3-small}
       - SECRET_KEY=${SECRET_KEY}
+      - QDRANT_URL=http://qdrant:6333
       - QDRANT_PATH=${QDRANT_PATH:-./data/qdrant_storage}
       - APP_ENV=${APP_ENV:-development}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
@@ -46,13 +47,15 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    command: npm run dev
     ports:
       - "5173:5173"
     volumes:
       - ./frontend:/app
-      - /app/node_modules
+      - /app/node_modules   # anonymous volume keeps the Docker-built node_modules intact
     environment:
       - VITE_API_URL=http://localhost:8000
+      - BACKEND_URL=http://backend:8000   # used by vite.config.ts proxy (server-side)
     depends_on:
       - backend
 
