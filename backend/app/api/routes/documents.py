@@ -5,7 +5,7 @@ import uuid
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -211,7 +211,7 @@ async def delete_document(
     current_user: Annotated[User, Depends(get_current_active_user)] = None,
     _: Annotated[str, Depends(check_matter_access)] = None,
     db: Annotated[AsyncSession, Depends(get_db)] = None,
-) -> None:
+) -> Response:
     """Delete a document from a matter.
 
     Args:
@@ -237,3 +237,4 @@ async def delete_document(
     await db.commit()
 
     logger.info(f"Document deleted: {doc_id}")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

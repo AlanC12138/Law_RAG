@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 from typing import AsyncGenerator
 
@@ -14,6 +15,20 @@ from app.db.base import Base
 from app.db.models import Matter, MatterMembership, User, UserRole
 from app.db.session import get_db
 from app.main import app
+
+# ---------------------------------------------------------------------------
+# Session-scoped event loop — required by pytest-asyncio 0.21 when any
+# session-scoped async fixture exists (e.g. create_test_tables).
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Provide a single event loop for the entire test session."""
+    policy = asyncio.get_event_loop_policy()
+    loop = policy.new_event_loop()
+    yield loop
+    loop.close()
+
 
 # ---------------------------------------------------------------------------
 # In-memory SQLite engine shared across a test session

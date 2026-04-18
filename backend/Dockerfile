@@ -12,7 +12,7 @@ RUN pip install --user --no-cache-dir poetry
 COPY pyproject.toml poetry.lock* ./
 
 RUN /root/.local/bin/poetry config virtualenvs.in-project true && \
-    /root/.local/bin/poetry install --no-dev
+    /root/.local/bin/poetry install --no-dev --no-root
 
 FROM python:3.11-slim
 
