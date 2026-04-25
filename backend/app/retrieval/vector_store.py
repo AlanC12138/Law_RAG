@@ -224,13 +224,14 @@ class QdrantVectorStore:
             ]
         )
 
-        hits = self.client.search(
+        response = self.client.query_points(
             collection_name=COLLECTION_NAME,
-            query_vector=query_vector,
+            query=query_vector,
             query_filter=matter_filter,
             limit=top_k,
             with_payload=True,
         )
+        hits = response.points
 
         return [
             SearchResult(

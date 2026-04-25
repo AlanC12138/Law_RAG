@@ -6,12 +6,11 @@ from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import services
 from app.config import get_settings
 from app.db.models import Document, DocumentStatus
-from app.embeddings.openai_embeddings import OpenAIEmbeddingProvider
 from app.ingestion.chunker import LegalChunker
 from app.ingestion.ocr import extract_text_from_docx, extract_text_from_pdf
-from app.retrieval.vector_store import QdrantVectorStore
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -29,18 +28,17 @@ class IngestionPipeline:
 
     The pipeline is designed to be called as a FastAPI BackgroundTask so
     uploads return immediately and processing happens asynchronously.
+
+    Embedder and vector store are resolved from the shared ``services``
+    singletons at run time so the pipeline always uses the same Qdrant
+    instance (server mode in Docker) as the query service.
     """
 
     def __init__(self) -> None:
-        self.embedder = OpenAIEmbeddingProvider(
-            model=settings.embedding_model,
-            api_key=settings.openai_api_key,
-        )
         self.chunker = LegalChunker(
             max_chunk_size=settings.max_chunk_size,
             chunk_overlap=settings.chunk_overlap,
         )
-        self.vector_store = QdrantVectorStore(path=settings.qdrant_path)
 
     async def run(
         self,
@@ -65,6 +63,10 @@ class IngestionPipeline:
             db:          Async database session (injected from FastAPI).
         """
         logger.info(f"Starting ingestion for document {document_id} ({filename})")
+
+        # Resolve shared singletons — guaranteed initialised by lifespan startup
+        embedder = services.embedder
+        vector_store = services.vector_store
 
         await self._set_status(db, document_id, DocumentStatus.PROCESSING)
 
@@ -91,7 +93,7 @@ class IngestionPipeline:
 
             # ── Step 3: Embed all chunks ─────────────────────────────────
             texts = [chunk.text for chunk in chunks]
-            vectors = await self.embedder.embed_batch(texts)
+            vectors = await embedder.embed_batch(texts)
 
             # ── Step 4: Store in Qdrant ──────────────────────────────────
             chunks_with_vectors = [
@@ -107,7 +109,7 @@ class IngestionPipeline:
                 }
                 for i, chunk in enumerate(chunks)
             ]
-            self.vector_store.upsert_chunks(chunks_with_vectors)
+            vector_store.upsert_chunks(chunks_with_vectors)
 
             # ── Step 5: Update Document record ───────────────────────────
             await self._set_ready(db, document_id, extracted.page_count)
