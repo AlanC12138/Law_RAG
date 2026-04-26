@@ -477,15 +477,15 @@ export default function AdminPage() {
           ) : (
             <>
               {/* Tabs */}
-              <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 w-fit">
+              <div className="flex gap-1 border-b border-blue-100">
                 {(['team', 'matters'] as AdminTab[]).map((t) => (
                   <button
                     key={t}
                     onClick={() => setTab(t)}
-                    className={`px-5 py-2 text-sm font-medium rounded-lg transition-colors capitalize ${
+                    className={`px-5 py-2 text-sm font-medium border-b-2 transition-colors capitalize ${
                       tab === t
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700'
+                        ? 'border-blue-600 text-blue-700 bg-blue-50'
+                        : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                     }`}
                   >
                     {t === 'team' ? `Team (${users.length})` : `Matters (${matters.length})`}
