@@ -1,231 +1,150 @@
-# Law RAG - Legal Document Retrieval and Generation System
+# Law RAG — AI-Powered Legal Document Assistant
 
-A production-grade Retrieval-Augmented Generation (RAG) application designed for legal professionals. Law RAG enables attorneys and paralegals to query large collections of legal documents, matter files, and case law with semantically-aware search, powered by modern LLMs and vector databases.
+Law RAG lets your legal team ask plain-English questions about case files and get precise, cited answers — backed by the documents themselves, never hallucinated.
 
-## Prerequisites
+- Upload PDFs and Word documents to a **Matter**
+- Ask questions in natural language
+- Every answer links back to the exact page and passage it came from
+- Role-based access control and full audit logging built in
 
-- **Python**: 3.11+
-- **Node.js**: 18+
-- **Tesseract OCR**: Required for document parsing
-  - macOS: `brew install tesseract`
-  - Ubuntu/Debian: `sudo apt-get install tesseract-ocr`
-  - Windows: Download from https://github.com/UB-Mannheim/tesseract/wiki
-- **Docker & Docker Compose**: For containerized deployment
+---
 
-## Quick Start
+## Requirements
 
-### 1. Clone and Setup
+Before you start, you need:
 
-```bash
-git clone <repo-url>
-cd Law_RAG
-```
+1. **Docker Desktop** — [download here](https://www.docker.com/products/docker-desktop/)
+2. **An OpenAI API key** — [get one here](https://platform.openai.com/api-keys)
 
-### 2. Configure Environment
+That's it. No Python, no Node.js, no database setup.
 
-```bash
-# Copy the example config and customize
-cp backend/.env.example backend/.env
+---
 
-# Edit backend/.env and add your OpenAI API key and other secrets
-# CRITICAL: SECRET_KEY must be a long random string for production
-```
+## Installation
 
-### 3. Run with Docker Compose
+### Windows
+
+1. Double-click **`setup.bat`**
+2. Enter your OpenAI API key when prompted
+3. Wait a few minutes for Docker to build the app
+4. Your browser opens automatically when it's ready
+
+### Mac / Linux
 
 ```bash
-# Start all services (backend, frontend, Qdrant)
-docker-compose up -d
-
-# Backend API: http://localhost:8000
-# Frontend UI: http://localhost:5173
-# API Docs: http://localhost:8000/docs
+chmod +x setup.sh
+./setup.sh
 ```
 
-### 4. Initialize Database
+The script will ask for your OpenAI API key, generate a secure configuration, and open the app in your browser when it's ready.
 
-```bash
-# Run migrations
-docker-compose exec backend alembic upgrade head
+---
+
+## Logging In
+
+Default credentials (set during setup):
+
+| Field    | Default                  |
+|----------|--------------------------|
+| Email    | `admin@lawfirm.local`    |
+| Password | `changeme`               |
+
+> **Important:** Change the admin password after your first login.
+
+---
+
+## Daily Use
+
+After the first install, Docker starts automatically when your machine boots. You can also manage it manually:
+
+**Windows** — open a terminal in the Law RAG folder and run:
+
+| What you want       | Command                        |
+|---------------------|-------------------------------|
+| Start the app       | `docker compose up -d`        |
+| Stop the app        | `docker compose down`         |
+| Restart the app     | `docker compose restart`      |
+| Check if it's running | `docker compose ps`         |
+
+**Mac / Linux** — same commands, or use `make`:
+
+| What you want       | Command           |
+|---------------------|-------------------|
+| Start the app       | `make start`      |
+| Stop the app        | `make stop`       |
+| Restart            | `make restart`    |
+| View live logs      | `make logs`       |
+| Check status        | `make status`     |
+| Wipe data & reset  | `make reset`      |
+
+---
+
+## How It Works
+
+```
+You ask a question about a Matter
+        ↓
+Law RAG searches your uploaded documents
+(hybrid keyword + semantic search)
+        ↓
+The most relevant passages are ranked
+and sent to GPT-4o as grounded context
+        ↓
+You get a precise answer with
+[SOURCE] citations linked to the original document
 ```
 
-### 5. Access the Application
+---
 
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:8000
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
+## Configuration
+
+All settings live in the `.env` file created during setup. See `.env.example` for available options.
+
+The only two values you must set are `OPENAI_API_KEY` and `SECRET_KEY` (generated automatically by the setup script).
+
+---
 
 ## Project Structure
 
 ```
 Law_RAG/
-├── backend/
-│   ├── app/
-│   │   ├── api/               # FastAPI routes and dependencies
-│   │   │   ├── routes/        # Endpoint modules (auth, documents, matters, query)
-│   │   │   └── dependencies.py
-│   │   ├── core/              # Cross-cutting concerns
-│   │   │   ├── logging.py     # Structured logging
-│   │   │   └── security.py    # JWT, password utilities
-│   │   ├── db/                # Database layer
-│   │   │   ├── models.py      # SQLAlchemy ORM models
-│   │   │   ├── base.py        # Declarative base
-│   │   │   └── session.py     # Session factory
-│   │   ├── connectors/        # Document source connectors
-│   │   │   ├── base.py        # Abstract interface
-│   │   │   └── folder_watch.py
-│   │   ├── llm/               # LLM abstraction layer
-│   │   │   ├── base.py        # Abstract interface
-│   │   │   └── openai_provider.py
-│   │   ├── embeddings/        # Embedding abstraction
-│   │   │   ├── base.py        # Abstract interface
-│   │   │   └── openai_embeddings.py
-│   │   └── main.py            # FastAPI application
-│   ├── tests/                 # Unit and integration tests
-│   ├── alembic/               # Database migrations
-│   ├── Dockerfile
-│   ├── pyproject.toml         # Poetry configuration
-│   └── .env.example           # Configuration template
-├── frontend/
-│   ├── src/
-│   │   ├── api/               # API client and hooks
-│   │   ├── pages/             # Page components
-│   │   ├── components/        # Reusable UI components
-│   │   ├── App.tsx
-│   │   └── main.tsx
-│   ├── index.html
-│   ├── vite.config.ts
-│   ├── tsconfig.json
-│   ├── package.json
-│   └── Dockerfile
-├── .github/
-│   └── workflows/             # CI/CD pipelines
-├── docker-compose.yml
-├── README.md                  # This file
-├── CHANGELOG.md
-├── INSTRUCTIONS.md            # Product requirements
-├── MVP.md                     # MVP scope
-└── TECH_STACK.md              # Technology choices
+├── setup.bat          ← Windows one-click setup
+├── setup.sh           ← Mac/Linux one-click setup
+├── docker-compose.yml ← Defines all three services
+├── .env               ← Your private config (gitignored)
+├── .env.example       ← Config template
+├── Makefile           ← Convenience commands (Mac/Linux)
+├── backend/           ← FastAPI + Python (AI, search, auth)
+└── frontend/          ← React + TypeScript (UI)
 ```
 
-## Development Workflow
+---
 
-### Backend Development
+## Troubleshooting
+
+**The app won't start**
+- Make sure Docker Desktop is running (look for the Docker icon in your taskbar)
+- Run `docker compose logs backend` to see error details
+
+**"Invalid API key" errors**
+- Check that `OPENAI_API_KEY` in your `.env` file starts with `sk-` and has no extra spaces
+
+**I forgot my password**
+- Update `ADMIN_PASSWORD` in `.env`, then run `docker compose restart backend`
+
+**I want to start over with a clean database**
+- Run `docker compose down -v` then `docker compose up -d` (this deletes all documents and users)
+
+---
+
+## For Developers
+
+See the [Developer Guide](INSTRUCTIONS.md) for architecture decisions, branching strategy, and how to run tests.
 
 ```bash
-# Install dependencies
-cd backend
-poetry install
+# Run the test suite
+docker compose exec backend poetry run pytest -v
 
-# Run development server
-poetry run uvicorn app.main:app --reload
-
-# Run tests
-poetry run pytest -v
-
-# Run linting
-poetry run ruff check .
-poetry run black --check .
-poetry run mypy .
+# View API documentation
+open http://localhost:8000/docs
 ```
-
-### Frontend Development
-
-```bash
-# Install dependencies
-cd frontend
-npm install
-
-# Run development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Run linting
-npm run lint
-```
-
-### Database Migrations
-
-```bash
-# Create a new migration
-alembic revision --autogenerate -m "Description"
-
-# Apply migrations
-alembic upgrade head
-
-# Rollback
-alembic downgrade -1
-```
-
-## Architecture
-
-### Core Concepts
-
-- **Documents**: Legal documents uploaded by users (PDFs, DOCX, etc.)
-- **Matters**: Legal cases or projects that organize documents
-- **Queries**: User questions about matter documents answered by LLM with retrieved context
-- **Vector Store**: Qdrant database for semantic document search
-- **Reranking**: MS MARCO cross-encoder for relevance ranking before LLM
-
-### Authentication Flow
-
-1. User logs in with email/password
-2. Server validates credentials and issues JWT access/refresh tokens
-3. Frontend stores tokens in localStorage
-4. Subsequent API calls include JWT in Authorization header
-5. Server validates token on each request
-
-### Document Ingestion
-
-1. User uploads document to matter
-2. Document file is stored and parsed (PDF, DOCX, images with OCR)
-3. Content is chunked with overlap (BM25 + semantic search)
-4. Chunks are embedded using OpenAI text-embedding-3-small
-5. Embeddings and metadata stored in Qdrant
-6. Document status transitions to "ready"
-
-### Query Flow
-
-1. User submits question about a matter
-2. Backend embeds the question
-3. Hybrid search: BM25 (fast, keyword) + vector search (semantic)
-4. Reranker scores results by relevance
-5. Top chunks sent as context to GPT-4o with prompt
-6. LLM generates answer with citations
-7. Results stored in QueryLog for audit trail
-
-## Branching Strategy
-
-- **main**: Production-ready code, tagged releases
-- **dev**: Integration branch for feature development
-- **feature/**: Individual feature branches, e.g., `feature/reranking-tuning`
-- **bugfix/**: Bug fixes, e.g., `bugfix/token-expiry`
-
-## CI/CD
-
-GitHub Actions workflows run on every push and pull request:
-- **backend-ci**: Lint (ruff, black), test (pytest), type check (mypy)
-- **frontend-ci**: Lint (ESLint), build (Vite)
-
-## API Documentation
-
-Once running, visit http://localhost:8000/docs for interactive Swagger UI.
-
-Key endpoints:
-- `POST /api/v1/auth/login` - User authentication
-- `POST /api/v1/matters` - Create matter (partner only)
-- `POST /api/v1/matters/{matter_id}/documents` - Upload document
-- `POST /api/v1/matters/{matter_id}/query` - Ask question about matter
-
-## Configuration
-
-All configuration is driven by environment variables in `.env` file. See `backend/.env.example` for all available options.
-
-## Support & Documentation
-
-- See `INSTRUCTIONS.md` for product vision and requirements
-- See `MVP.md` for MVP scope
-- See `TECH_STACK.md` for technology rationale
