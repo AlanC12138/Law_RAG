@@ -245,7 +245,7 @@ export default function DashboardPage() {
               {/* Tab bar */}
               <div className="shrink-0 flex items-center gap-1 px-5 pt-4 pb-0 border-b border-blue-100">
                 <div className="flex-1 min-w-0 mr-4">
-                  <h2 className="text-base font-semibold text-slate-800 truncate">
+                  <h2 className="text-base font-semibold text-slate-600 truncate">
                     {selectedMatter.name}
                   </h2>
                   <p className="text-xs text-slate-400 truncate">
@@ -261,7 +261,7 @@ export default function DashboardPage() {
                     className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
                       activeTab === tab.id
                         ? 'border-blue-600 text-blue-700 bg-blue-50'
-                        : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                        : 'border-transparent text-slate-400 hover:text-slate-500 hover:bg-slate-50'
                     }`}
                   >
                     <span className="flex items-center gap-1.5">

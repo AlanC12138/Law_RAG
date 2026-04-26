@@ -217,7 +217,7 @@ function MatterCard({
         className="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-slate-50 transition-colors text-left"
       >
         <div>
-          <p className="text-sm font-semibold text-slate-800">{matter.name}</p>
+          <p className="text-sm font-semibold text-slate-600">{matter.name}</p>
           <p className="text-xs text-slate-400 mt-0.5">{matter.client_name}{matter.jurisdiction ? ` · ${matter.jurisdiction}` : ''}</p>
         </div>
         <div className="flex items-center gap-3">
@@ -485,7 +485,7 @@ export default function AdminPage() {
                     className={`px-5 py-2 text-sm font-medium border-b-2 transition-colors capitalize ${
                       tab === t
                         ? 'border-blue-600 text-blue-700 bg-blue-50'
-                        : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                        : 'border-transparent text-slate-400 hover:text-slate-500 hover:bg-slate-50'
                     }`}
                   >
                     {t === 'team' ? `Team (${users.length})` : `Matters (${matters.length})`}

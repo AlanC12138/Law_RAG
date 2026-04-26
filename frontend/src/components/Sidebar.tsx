@@ -66,7 +66,7 @@ export default function Sidebar({
                   isActive ? 'bg-blue-600 shadow-sm' : 'hover:bg-blue-50'
                 }`}
               >
-                <div className={`text-sm font-semibold truncate ${isActive ? 'text-white' : 'text-slate-800'}`}>
+                <div className={`text-sm font-semibold truncate ${isActive ? 'text-white' : 'text-slate-600'}`}>
                   {matter.name}
                 </div>
                 <div className={`text-xs mt-0.5 truncate ${isActive ? 'text-blue-200' : 'text-slate-400'}`}>
