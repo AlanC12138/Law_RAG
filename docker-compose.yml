@@ -40,6 +40,11 @@ services:
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@lawfirm.local}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
       - ADMIN_NAME=${ADMIN_NAME:-Admin Partner}
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434/v1}
+      - OLLAMA_LLM_MODEL=${OLLAMA_LLM_MODEL:-llama3.2}
+      - OLLAMA_EMBEDDING_MODEL=${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+      - EMBEDDING_DIM=${EMBEDDING_DIM:-1536}
     depends_on:
       - qdrant
     healthcheck:
@@ -65,6 +70,22 @@ services:
     depends_on:
       - backend
 
+# ---------------------------------------------------------------------------
+# Optional: Ollama (local LLM)
+# Uncomment this service and set LLM_PROVIDER=ollama in your .env to run
+# entirely without OpenAI.  Then pull your models:
+#   docker compose exec ollama ollama pull llama3.2
+#   docker compose exec ollama ollama pull nomic-embed-text
+# ---------------------------------------------------------------------------
+#  ollama:
+#    image: ollama/ollama:latest
+#    restart: unless-stopped
+#    ports:
+#      - "11434:11434"
+#    volumes:
+#      - ollama_data:/root/.ollama
+
 volumes:
   qdrant_storage:
   app_data:
+  # ollama_data:

@@ -1,33 +1,139 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { mattersApi } from '../api/matters'
+import { usersApi } from '../api/users'
 import ChatPanel from '../components/ChatPanel'
 import DocumentsPanel from '../components/DocumentsPanel'
+import HistoryPanel from '../components/HistoryPanel'
 import Sidebar from '../components/Sidebar'
-import type { Matter } from '../types'
+import type { Matter, User } from '../types'
 
-type Tab = 'chat' | 'documents'
+type Tab = 'chat' | 'documents' | 'history'
+
+// ---------------------------------------------------------------------------
+// New Matter modal (inline, partner only)
+// ---------------------------------------------------------------------------
+interface NewMatterModalProps {
+  onCreated: (m: Matter) => void
+  onClose: () => void
+}
+
+function NewMatterModal({ onCreated, onClose }: NewMatterModalProps) {
+  const [form, setForm] = useState({ name: '', client_name: '', jurisdiction: '', description: '' })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const overlayRef = useRef<HTMLDivElement>(null)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    setError('')
+    try {
+      const matter = await mattersApi.create(form)
+      onCreated(matter)
+    } catch (err: any) {
+      setError(err?.response?.data?.detail ?? 'Failed to create matter')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div
+      ref={overlayRef}
+      onClick={(e) => { if (e.target === overlayRef.current) onClose() }}
+      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
+    >
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <h2 className="text-base font-semibold text-slate-800 mb-4">New Matter</h2>
+        {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input
+            required
+            placeholder="Matter name"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+          <input
+            required
+            placeholder="Client name"
+            value={form.client_name}
+            onChange={(e) => setForm({ ...form, client_name: e.target.value })}
+            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+          <input
+            placeholder="Jurisdiction (optional)"
+            value={form.jurisdiction}
+            onChange={(e) => setForm({ ...form, jurisdiction: e.target.value })}
+            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+          <textarea
+            placeholder="Description (optional)"
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            rows={2}
+            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+          />
+          <div className="flex gap-2 pt-1">
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 text-sm bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium transition-colors"
+            >
+              {saving ? 'Creating…' : 'Create Matter'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-sm text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// DashboardPage
+// ---------------------------------------------------------------------------
 
 export default function DashboardPage() {
   const [matters, setMatters] = useState<Matter[]>([])
   const [selectedMatter, setSelectedMatter] = useState<Matter | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('chat')
   const [loadingMatters, setLoadingMatters] = useState(true)
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [showNewMatter, setShowNewMatter] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
-    mattersApi
-      .list()
-      .then(setMatters)
-      .catch((err) => {
+    const init = async () => {
+      try {
+        const [me, matterList] = await Promise.all([usersApi.me(), mattersApi.list()])
+        setCurrentUser(me)
+        setMatters(matterList)
+      } catch (err: any) {
         if (err?.response?.status === 401) navigate('/login')
-      })
-      .finally(() => setLoadingMatters(false))
+      } finally {
+        setLoadingMatters(false)
+      }
+    }
+    init()
   }, [navigate])
 
   const handleSelectMatter = (matter: Matter) => {
     setSelectedMatter(matter)
-    setActiveTab('chat')   // always open on chat when switching matter
+    setActiveTab('chat')
+  }
+
+  const handleMatterCreated = (matter: Matter) => {
+    setMatters((prev) => [...prev, matter])
+    setSelectedMatter(matter)
+    setShowNewMatter(false)
+    setActiveTab('chat')
   }
 
   const handleLogout = () => {
@@ -36,10 +142,46 @@ export default function DashboardPage() {
     navigate('/login')
   }
 
+  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    {
+      id: 'chat',
+      label: 'Chat',
+      icon: (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+          />
+        </svg>
+      ),
+    },
+    {
+      id: 'documents',
+      label: 'Documents',
+      icon: (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+          />
+        </svg>
+      ),
+    },
+    {
+      id: 'history',
+      label: 'History',
+      icon: (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+      ),
+    },
+  ]
+
   return (
     <div className="flex flex-col h-screen bg-blue-50 overflow-hidden">
 
-      {/* ── Header ── */}
+      {/* Header */}
       <header className="shrink-0 bg-blue-900 text-white px-5 h-14 flex items-center justify-between shadow-md z-10">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
@@ -53,9 +195,9 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {selectedMatter && (
-            <span className="hidden sm:block text-sm text-blue-300 truncate max-w-xs">
-              {selectedMatter.name}
+          {currentUser && (
+            <span className="hidden sm:block text-xs text-blue-300">
+              {currentUser.full_name} · <span className="capitalize">{currentUser.role}</span>
             </span>
           )}
           <button
@@ -67,21 +209,19 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* ── Body ── */}
+      {/* Body */}
       <div className="flex flex-1 overflow-hidden">
-
-        {/* Sidebar */}
         <Sidebar
           matters={matters}
           selectedMatter={selectedMatter}
           onSelect={handleSelectMatter}
+          onNewMatter={() => setShowNewMatter(true)}
+          currentUser={currentUser}
           loading={loadingMatters}
         />
 
-        {/* Main area */}
         <main className="flex-1 flex flex-col overflow-hidden">
           {!selectedMatter ? (
-            /* Empty state */
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center max-w-sm px-8">
                 <div className="w-16 h-16 rounded-2xl bg-white border border-blue-200 shadow-sm flex items-center justify-center mx-auto mb-5">
@@ -93,13 +233,15 @@ export default function DashboardPage() {
                 </div>
                 <h2 className="text-lg font-semibold text-slate-700 mb-2">Select a matter</h2>
                 <p className="text-sm text-slate-400">
-                  Choose a matter from the sidebar to start querying documents or manage files.
+                  Choose a matter from the sidebar to start querying documents.
+                  {currentUser?.role === 'partner' && (
+                    <> Partners can create new matters with the <strong>+</strong> button.</>
+                  )}
                 </p>
               </div>
             </div>
           ) : (
             <div className="flex-1 flex flex-col overflow-hidden bg-white rounded-tl-2xl shadow-inner">
-
               {/* Tab bar */}
               <div className="shrink-0 flex items-center gap-1 px-5 pt-4 pb-0 border-b border-blue-100">
                 <div className="flex-1 min-w-0 mr-4">
@@ -112,50 +254,42 @@ export default function DashboardPage() {
                   </p>
                 </div>
 
-                {(['chat', 'documents'] as Tab[]).map((tab) => (
+                {tabs.map((tab) => (
                   <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors capitalize ${
-                      activeTab === tab
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
+                      activeTab === tab.id
                         ? 'border-blue-600 text-blue-700 bg-blue-50'
                         : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                     }`}
                   >
-                    {tab === 'chat' ? (
-                      <span className="flex items-center gap-1.5">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                            d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                          />
-                        </svg>
-                        Chat
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1.5">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                          />
-                        </svg>
-                        Documents
-                      </span>
-                    )}
+                    <span className="flex items-center gap-1.5">
+                      {tab.icon}
+                      {tab.label}
+                    </span>
                   </button>
                 ))}
               </div>
 
               {/* Panel content */}
               <div className="flex-1 overflow-hidden">
-                {activeTab === 'chat'
-                  ? <ChatPanel matter={selectedMatter} />
-                  : <DocumentsPanel matter={selectedMatter} />
-                }
+                {activeTab === 'chat'      && <ChatPanel      matter={selectedMatter} />}
+                {activeTab === 'documents' && <DocumentsPanel matter={selectedMatter} />}
+                {activeTab === 'history'   && <HistoryPanel   matter={selectedMatter} />}
               </div>
             </div>
           )}
         </main>
       </div>
+
+      {/* New Matter modal */}
+      {showNewMatter && (
+        <NewMatterModal
+          onCreated={handleMatterCreated}
+          onClose={() => setShowNewMatter(false)}
+        />
+      )}
     </div>
   )
 }

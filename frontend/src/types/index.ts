@@ -9,7 +9,16 @@ export interface Matter {
   description: string
   jurisdiction: string
   is_active: boolean
-  created_at: string
+}
+
+export interface MatterMember {
+  id: string
+  email: string
+  full_name: string
+}
+
+export interface MatterDetail extends Matter {
+  members: MatterMember[]
 }
 
 export interface Document {
@@ -38,9 +47,20 @@ export interface ChatMessage {
   timestamp: Date
 }
 
+export interface QueryLog {
+  id: string
+  query: string
+  answer: string
+  created_at: string
+}
+
+export type UserRole = 'partner' | 'associate' | 'paralegal'
+
 export interface User {
   id: string
   email: string
   full_name: string
-  role: 'partner' | 'associate' | 'paralegal'
+  role: UserRole
+  is_active: boolean
+  created_at: string
 }

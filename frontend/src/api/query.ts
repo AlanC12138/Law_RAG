@@ -1,4 +1,5 @@
-import type { SourceReference } from '../types'
+import client from './client'
+import type { QueryLog, SourceReference } from '../types'
 
 // Uses raw fetch (not Axios) so we can read the SSE stream incrementally.
 
@@ -68,4 +69,11 @@ export async function streamQuery(
   } finally {
     reader.releaseLock()
   }
+}
+
+export const queryApi = {
+  fetchLogs: async (matterId: string): Promise<QueryLog[]> => {
+    const res = await client.get(`/matters/${matterId}/query/logs`)
+    return res.data
+  },
 }

@@ -19,8 +19,9 @@ logger = logging.getLogger(__name__)
 # Name of the single Qdrant collection used by the application.
 COLLECTION_NAME = "law_rag_chunks"
 
-# Embedding dimension for OpenAI text-embedding-3-small.
-VECTOR_DIM = 1536
+# Default embedding dimension (OpenAI text-embedding-3-small).
+# Override via settings.embedding_dim when using Ollama or other providers.
+DEFAULT_VECTOR_DIM = 1536
 
 
 @dataclass
@@ -49,7 +50,13 @@ class QdrantVectorStore:
     return chunks belonging to the requested matter.
     """
 
-    def __init__(self, path: str, url: str | None = None, api_key: str | None = None) -> None:
+    def __init__(
+        self,
+        path: str,
+        url: str | None = None,
+        api_key: str | None = None,
+        vector_dim: int = DEFAULT_VECTOR_DIM,
+    ) -> None:
         """Initialise the vector store.
 
         When *url* is provided the client connects to a Qdrant server
@@ -57,10 +64,12 @@ class QdrantVectorStore:
         back to embedded (in-process) mode using *path*.
 
         Args:
-            path:    Local directory for embedded Qdrant storage.
-            url:     Optional Qdrant server URL, e.g. ``http://qdrant:6333``.
-            api_key: Optional API key for the Qdrant server.
+            path:       Local directory for embedded Qdrant storage.
+            url:        Optional Qdrant server URL, e.g. ``http://qdrant:6333``.
+            api_key:    Optional API key for the Qdrant server.
+            vector_dim: Embedding dimension — must match the embedding model in use.
         """
+        self._vector_dim = vector_dim
         if url:
             logger.info(f"Connecting to Qdrant server at {url}")
             self.client = QdrantClient(url=url, api_key=api_key or None)
@@ -79,7 +88,7 @@ class QdrantVectorStore:
         if COLLECTION_NAME not in existing:
             self.client.create_collection(
                 collection_name=COLLECTION_NAME,
-                vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE),
+                vectors_config=VectorParams(size=self._vector_dim, distance=Distance.COSINE),
             )
             logger.info(f"Created Qdrant collection: {COLLECTION_NAME}")
         else:
