@@ -27,10 +27,18 @@ router = APIRouter(prefix="/matters/{matter_id}/query", tags=["query"])
 # Request / response models
 # ---------------------------------------------------------------------------
 
+class ConversationTurn(BaseModel):
+    """A single prior turn in the conversation."""
+
+    role: str    # "user" or "assistant"
+    content: str
+
+
 class QueryRequest(BaseModel):
     """Incoming query from the user."""
 
     question: str
+    history: list[ConversationTurn] = []
 
 
 class SourceReference(BaseModel):
@@ -162,6 +170,7 @@ async def query_matter(
 
     context = build_context_block(results)
     sources = _results_to_sources(results)
+    history = [t.model_dump() for t in query_req.history]
 
     # --- Streaming path ---
     if stream:
@@ -169,6 +178,7 @@ async def query_matter(
             _stream_sse(
                 question=query_req.question,
                 context=context,
+                history=history,
                 sources=sources,
                 results=results,
                 llm=llm,
@@ -181,7 +191,7 @@ async def query_matter(
         )
 
     # --- Non-streaming path ---
-    answer = await llm.complete(prompt=query_req.question, context=context)
+    answer = await llm.complete(prompt=query_req.question, context=context, history=history)
     log_id = await _log_query(
         db, current_user.id, matter_id, query_req.question, answer, results
     )
@@ -192,6 +202,7 @@ async def query_matter(
 async def _stream_sse(
     question: str,
     context: str,
+    history: list[dict],
     sources: list[SourceReference],
     results: list[RankedResult],
     llm,
@@ -212,7 +223,7 @@ async def _stream_sse(
     full_answer: list[str] = []
 
     try:
-        async for token in llm.stream_complete(prompt=question, context=context):
+        async for token in llm.stream_complete(prompt=question, context=context, history=history):
             full_answer.append(token)
             payload = json.dumps({"type": "token", "content": token})
             yield f"data: {payload}\n\n"

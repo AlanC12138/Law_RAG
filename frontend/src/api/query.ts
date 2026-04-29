@@ -3,6 +3,11 @@ import type { QueryLog, SourceReference } from '../types'
 
 // Uses raw fetch (not Axios) so we can read the SSE stream incrementally.
 
+export interface ConversationTurn {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 interface StreamCallbacks {
   onToken: (token: string) => void
   onSources: (sources: SourceReference[]) => void
@@ -13,6 +18,7 @@ interface StreamCallbacks {
 export async function streamQuery(
   matterId: string,
   question: string,
+  history: ConversationTurn[],
   callbacks: StreamCallbacks
 ): Promise<void> {
   const token = localStorage.getItem('access_token')
@@ -23,7 +29,7 @@ export async function streamQuery(
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ question, history }),
   })
 
   if (!response.ok) {

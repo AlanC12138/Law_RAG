@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { streamQuery } from '../api/query'
+import type { ConversationTurn } from '../api/query'
 import ChatMessage from './ChatMessage'
 import type { ChatMessage as ChatMessageType, Matter, SourceReference } from '../types'
 
@@ -34,6 +35,14 @@ export default function ChatPanel({ matter }: ChatPanelProps) {
     setQuestion('')
     setIsQuerying(true)
 
+    // Build history from all completed turns so the LLM has conversation context
+    const history: ConversationTurn[] = messages
+      .filter((m) => !m.isStreaming && m.answer)
+      .flatMap((m) => [
+        { role: 'user' as const,      content: m.question },
+        { role: 'assistant' as const, content: m.answer   },
+      ])
+
     // Add placeholder message immediately
     setMessages((prev) => [
       ...prev,
@@ -47,7 +56,7 @@ export default function ChatPanel({ matter }: ChatPanelProps) {
       },
     ])
 
-    await streamQuery(matter.id, q, {
+    await streamQuery(matter.id, q, history, {
       onToken: (token) => {
         setMessages((prev) =>
           prev.map((m) =>
