@@ -34,6 +34,7 @@ class DocumentResponse(BaseModel):
     status: str
     page_count: int
     summary: str | None = None
+    clauses: dict | None = None
     created_at: str
 
 
@@ -125,6 +126,7 @@ async def upload_document(
         status=document.status,
         page_count=document.page_count,
         summary=document.summary,
+        clauses=document.clauses_json,
         created_at=document.created_at.isoformat(),
     )
 
@@ -159,6 +161,7 @@ async def list_documents(
             status=doc.status,
             page_count=doc.page_count,
             summary=doc.summary,
+            clauses=doc.clauses_json,
             created_at=doc.created_at.isoformat(),
         )
         for doc in documents
@@ -204,6 +207,7 @@ async def get_document(
         status=document.status,
         page_count=document.page_count,
         summary=document.summary,
+        clauses=document.clauses_json,
         created_at=document.created_at.isoformat(),
     )
 

@@ -7,6 +7,43 @@ interface DocumentsPanelProps {
   matter: Matter
 }
 
+// Friendly display labels for extracted clause keys
+const CLAUSE_LABELS: Record<string, string> = {
+  document_type:   'Type',
+  parties:         'Parties',
+  effective_date:  'Effective',
+  expiry_date:     'Expires',
+  governing_law:   'Law',
+  termination:     'Termination',
+  key_obligations: 'Obligations',
+}
+
+function ClausePills({ clauses }: { clauses: Record<string, string | string[]> }) {
+  const entries = Object.entries(clauses).filter(([, v]) =>
+    Array.isArray(v) ? v.length > 0 : Boolean(v)
+  )
+  if (entries.length === 0) return null
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {entries.map(([key, value]) => {
+        const label = CLAUSE_LABELS[key] ?? key
+        const display = Array.isArray(value) ? value.join(', ') : String(value)
+        return (
+          <span
+            key={key}
+            className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2.5 py-0.5 max-w-[260px]"
+            title={display}
+          >
+            <span className="font-semibold shrink-0">{label}:</span>
+            <span className="truncate">{display}</span>
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 const STATUS_CONFIG = {
   pending:    { label: 'Pending',    className: 'bg-slate-100 text-slate-500' },
   processing: { label: 'Processing', className: 'bg-blue-100 text-blue-600 animate-pulse' },
@@ -147,15 +184,20 @@ export default function DocumentsPanel({ matter }: DocumentsPanelProps) {
                     </button>
                   </div>
 
-                  {/* Summary — shown once the document is ready */}
-                  {doc.status === 'ready' && doc.summary && (
-                    <p className="mt-2 text-xs text-slate-500 leading-relaxed border-t border-slate-100 pt-2">
-                      {doc.summary}
-                    </p>
+                  {/* Enrichment — shown once the document is ready */}
+                  {doc.status === 'ready' && (doc.summary || doc.clauses) && (
+                    <div className="mt-2 border-t border-slate-100 pt-2 space-y-2">
+                      {doc.summary && (
+                        <p className="text-xs text-slate-500 leading-relaxed">{doc.summary}</p>
+                      )}
+                      {doc.clauses && Object.keys(doc.clauses).length > 0 && (
+                        <ClausePills clauses={doc.clauses} />
+                      )}
+                    </div>
                   )}
                   {doc.status === 'processing' && (
                     <p className="mt-2 text-xs text-blue-400 animate-pulse border-t border-slate-100 pt-2">
-                      Summarising document…
+                      Analysing document…
                     </p>
                   )}
                 </div>

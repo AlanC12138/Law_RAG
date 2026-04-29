@@ -114,7 +114,7 @@ class IngestionPipeline:
             # ── Step 5: Update Document record ───────────────────────────
             await self._set_ready(db, document_id, extracted.page_count)
 
-            # ── Step 6: Generate LLM summary ─────────────────────────────
+            # ── Steps 6–7: LLM enrichment (summary + clauses) ────────────
             llm = services.llm
             full_text = "\n\n".join(texts)
             try:
@@ -123,6 +123,14 @@ class IngestionPipeline:
                 logger.info(f"Summary generated for document {document_id}")
             except Exception as exc:
                 logger.warning(f"Summarisation failed for {document_id}: {exc}")
+
+            try:
+                clauses = await llm.extract_clauses(full_text)
+                if clauses:
+                    await self._set_clauses(db, document_id, clauses)
+                    logger.info(f"Clauses extracted for document {document_id}")
+            except Exception as exc:
+                logger.warning(f"Clause extraction failed for {document_id}: {exc}")
 
             logger.info(f"Ingestion complete for document {document_id}")
 
@@ -167,4 +175,15 @@ class IngestionPipeline:
         doc = await db.get(Document, document_id)
         if doc:
             doc.summary = summary
+            await db.commit()
+
+    @staticmethod
+    async def _set_clauses(
+        db: AsyncSession,
+        document_id: str,
+        clauses: dict,
+    ) -> None:
+        doc = await db.get(Document, document_id)
+        if doc:
+            doc.clauses_json = clauses
             await db.commit()

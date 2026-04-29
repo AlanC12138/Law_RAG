@@ -6,7 +6,7 @@ from typing import AsyncIterator
 from openai import AsyncOpenAI
 
 from app.llm.base import BaseLLMProvider
-from app.llm.prompt import SUMMARIZE_SYSTEM_PROMPT, SYSTEM_PROMPT
+from app.llm.prompt import CLAUSE_EXTRACTION_SYSTEM_PROMPT, SUMMARIZE_SYSTEM_PROMPT, SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -116,3 +116,30 @@ class OpenAIProvider(BaseLLMProvider):
             temperature=0,
         )
         return response.choices[0].message.content or ""
+
+    async def extract_clauses(self, text: str) -> dict:
+        """Extract structured key clauses from a legal document.
+
+        Args:
+            text: Raw document text (truncated to first 8 000 chars).
+
+        Returns:
+            Dict of extracted clause fields.
+        """
+        import json as _json
+
+        response = await self._client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": CLAUSE_EXTRACTION_SYSTEM_PROMPT},
+                {"role": "user", "content": f"Document text:\n\n{text[:8000]}"},
+            ],
+            temperature=0,
+            response_format={"type": "json_object"},
+        )
+        raw = response.choices[0].message.content or "{}"
+        try:
+            return _json.loads(raw)
+        except _json.JSONDecodeError:
+            logger.warning("Clause extraction returned non-JSON; skipping")
+            return {}

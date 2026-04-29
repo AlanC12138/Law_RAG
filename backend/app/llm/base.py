@@ -61,3 +61,17 @@ class BaseLLMProvider(ABC):
             3-5 sentence plain-prose summary.
         """
         pass
+
+    @abstractmethod
+    async def extract_clauses(self, text: str) -> dict:
+        """Extract key structured clauses from a legal document.
+
+        Args:
+            text: Raw document text (will be truncated internally if needed).
+
+        Returns:
+            Dict with keys such as ``document_type``, ``parties``,
+            ``effective_date``, ``governing_law``, ``termination``,
+            ``key_obligations``.  Missing fields are omitted.
+        """
+        pass

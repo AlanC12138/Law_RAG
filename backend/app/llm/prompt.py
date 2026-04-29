@@ -29,6 +29,20 @@ Focus on: the document type, the parties involved, the primary subject matter, \
 key obligations or rights, and any important dates or deadlines.
 Respond with plain prose only — no headers, no bullet points, no markdown."""
 
+CLAUSE_EXTRACTION_SYSTEM_PROMPT = """You are a legal document analyst. \
+Extract key structured information from the provided legal document text.
+
+Return a JSON object with these keys (omit any key where the information is not present):
+  "document_type"    — e.g. "Non-Disclosure Agreement", "Employment Contract"
+  "parties"          — list of party names / roles
+  "effective_date"   — date the agreement takes effect
+  "expiry_date"      — end date or term, if stated
+  "governing_law"    — jurisdiction / governing law clause
+  "termination"      — brief description of termination rights
+  "key_obligations"  — list of up to 4 primary obligations
+
+Respond with valid JSON only — no explanation, no markdown fences."""
+
 
 # ---------------------------------------------------------------------------
 # Context formatter
