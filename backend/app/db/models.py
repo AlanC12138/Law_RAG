@@ -104,6 +104,7 @@ class Document(Base):
     )
     page_count: Mapped[int] = mapped_column(default=0)
     metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    summary: Mapped[str | None] = mapped_column(String(2000), nullable=True, default=None)
     ingested_at: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         default=datetime.utcnow, server_default=func.now()

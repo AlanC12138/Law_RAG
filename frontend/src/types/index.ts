@@ -27,6 +27,8 @@ export interface Document {
   file_type: string
   status: 'pending' | 'processing' | 'ready' | 'failed'
   page_count: number
+  summary: string | null
+  clauses: Record<string, string | string[]> | null
   created_at: string
 }
 

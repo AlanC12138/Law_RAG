@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.config import get_settings
@@ -24,8 +24,28 @@ async def create_tables() -> None:
     engine = create_async_engine(settings.database_url)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await _migrate_columns(conn)
     await engine.dispose()
     logger.info("Database tables verified / created")
+
+
+async def _migrate_columns(conn) -> None:
+    """Add new columns to existing tables without dropping data.
+
+    SQLite does not support IF NOT EXISTS on ALTER TABLE, so we attempt
+    each ALTER and silently ignore the error if the column already exists.
+    New columns added here must also be declared in db/models.py.
+    """
+    new_columns = [
+        "ALTER TABLE documents ADD COLUMN summary VARCHAR(2000)",
+        "ALTER TABLE documents ADD COLUMN clauses_json TEXT",
+    ]
+    for stmt in new_columns:
+        try:
+            await conn.execute(text(stmt))
+            logger.info(f"Migration applied: {stmt}")
+        except Exception:
+            pass  # column already exists — safe to ignore
 
 
 async def seed_admin(db: AsyncSession) -> None:

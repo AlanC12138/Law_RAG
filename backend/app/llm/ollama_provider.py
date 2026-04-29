@@ -6,7 +6,7 @@ from typing import AsyncIterator
 from openai import AsyncOpenAI
 
 from app.llm.base import BaseLLMProvider
-from app.llm.prompt import SYSTEM_PROMPT
+from app.llm.prompt import SUMMARIZE_SYSTEM_PROMPT, SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -38,26 +38,32 @@ class OllamaProvider(BaseLLMProvider):
         self._client = AsyncOpenAI(base_url=base_url, api_key="ollama")
         logger.info(f"Ollama provider initialised — model: {model}, url: {base_url}")
 
-    async def complete(self, prompt: str, context: str) -> str:
+    async def complete(
+        self,
+        prompt: str,
+        context: str,
+        history: list[dict] | None = None,
+    ) -> str:
         """Generate a non-streaming completion via Ollama.
 
         Args:
             prompt:  The user's question.
             context: Pre-formatted source block.
+            history: Optional prior conversation turns.
 
         Returns:
             Full model response text.
         """
         from app.llm.prompt import build_user_message
 
-        user_message = build_user_message(prompt, context)
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        for turn in (history or []):
+            messages.append({"role": turn["role"], "content": turn["content"]})
+        messages.append({"role": "user", "content": build_user_message(prompt, context)})
 
         response = await self._client.chat.completions.create(
             model=self.model,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_message},
-            ],
+            messages=messages,
             temperature=0,
         )
 
@@ -65,26 +71,32 @@ class OllamaProvider(BaseLLMProvider):
         logger.debug(f"Ollama completion: {len(answer)} chars")
         return answer
 
-    async def stream_complete(self, prompt: str, context: str) -> AsyncIterator[str]:
+    async def stream_complete(
+        self,
+        prompt: str,
+        context: str,
+        history: list[dict] | None = None,
+    ) -> AsyncIterator[str]:
         """Generate a streaming completion via Ollama.
 
         Args:
             prompt:  The user's question.
             context: Pre-formatted source block.
+            history: Optional prior conversation turns.
 
         Yields:
             Text delta chunks from the model.
         """
         from app.llm.prompt import build_user_message
 
-        user_message = build_user_message(prompt, context)
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        for turn in (history or []):
+            messages.append({"role": turn["role"], "content": turn["content"]})
+        messages.append({"role": "user", "content": build_user_message(prompt, context)})
 
         stream = await self._client.chat.completions.create(
             model=self.model,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_message},
-            ],
+            messages=messages,
             temperature=0,
             stream=True,
         )
@@ -93,3 +105,22 @@ class OllamaProvider(BaseLLMProvider):
             delta = chunk.choices[0].delta.content
             if delta:
                 yield delta
+
+    async def summarize(self, text: str) -> str:
+        """Generate a concise summary of a legal document via Ollama.
+
+        Args:
+            text: Raw document text (truncated to first 8 000 chars).
+
+        Returns:
+            3-5 sentence plain-prose summary.
+        """
+        response = await self._client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": SUMMARIZE_SYSTEM_PROMPT},
+                {"role": "user", "content": f"Document text:\n\n{text[:8000]}"},
+            ],
+            temperature=0,
+        )
+        return response.choices[0].message.content or ""

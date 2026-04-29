@@ -33,6 +33,7 @@ class DocumentResponse(BaseModel):
     file_type: str
     status: str
     page_count: int
+    summary: str | None = None
     created_at: str
 
 
@@ -123,6 +124,7 @@ async def upload_document(
         file_type=document.file_type,
         status=document.status,
         page_count=document.page_count,
+        summary=document.summary,
         created_at=document.created_at.isoformat(),
     )
 
@@ -156,6 +158,7 @@ async def list_documents(
             file_type=doc.file_type,
             status=doc.status,
             page_count=doc.page_count,
+            summary=doc.summary,
             created_at=doc.created_at.isoformat(),
         )
         for doc in documents
@@ -200,6 +203,7 @@ async def get_document(
         file_type=document.file_type,
         status=document.status,
         page_count=document.page_count,
+        summary=document.summary,
         created_at=document.created_at.isoformat(),
     )
 

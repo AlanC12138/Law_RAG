@@ -113,6 +113,17 @@ class IngestionPipeline:
 
             # ── Step 5: Update Document record ───────────────────────────
             await self._set_ready(db, document_id, extracted.page_count)
+
+            # ── Step 6: Generate LLM summary ─────────────────────────────
+            llm = services.llm
+            full_text = "\n\n".join(texts)
+            try:
+                summary = await llm.summarize(full_text)
+                await self._set_summary(db, document_id, summary)
+                logger.info(f"Summary generated for document {document_id}")
+            except Exception as exc:
+                logger.warning(f"Summarisation failed for {document_id}: {exc}")
+
             logger.info(f"Ingestion complete for document {document_id}")
 
         except Exception as exc:
@@ -145,4 +156,15 @@ class IngestionPipeline:
             doc.status = DocumentStatus.READY
             doc.page_count = page_count
             doc.ingested_at = datetime.utcnow()
+            await db.commit()
+
+    @staticmethod
+    async def _set_summary(
+        db: AsyncSession,
+        document_id: str,
+        summary: str,
+    ) -> None:
+        doc = await db.get(Document, document_id)
+        if doc:
+            doc.summary = summary
             await db.commit()

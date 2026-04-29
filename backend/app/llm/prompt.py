@@ -3,7 +3,7 @@ from __future__ import annotations
 from app.retrieval.reranker import RankedResult
 
 # ---------------------------------------------------------------------------
-# System prompt
+# System prompts
 # ---------------------------------------------------------------------------
 
 SYSTEM_PROMPT = """You are a legal research assistant for a law firm. \
@@ -22,6 +22,12 @@ rather than paraphrasing.
 
 You are assisting qualified attorneys. Accuracy and traceability to source documents \
 are more important than brevity."""
+
+SUMMARIZE_SYSTEM_PROMPT = """You are a legal document analyst. \
+Write a concise 3-5 sentence summary of the provided legal document text.
+Focus on: the document type, the parties involved, the primary subject matter, \
+key obligations or rights, and any important dates or deadlines.
+Respond with plain prose only — no headers, no bullet points, no markdown."""
 
 
 # ---------------------------------------------------------------------------
