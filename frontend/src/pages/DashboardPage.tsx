@@ -202,7 +202,7 @@ export default function DashboardPage() {
           )}
           <button
             onClick={handleLogout}
-            className="text-xs text-blue-300 hover:text-white border border-blue-700 hover:border-blue-500 px-3 py-1.5 rounded-lg transition-colors"
+            className="text-xs text-blue-200 hover:text-white border border-blue-600 hover:border-white hover:bg-blue-800 px-3 py-1.5 rounded-lg transition-colors"
           >
             Sign out
           </button>
@@ -261,7 +261,7 @@ export default function DashboardPage() {
                     className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
                       activeTab === tab.id
                         ? 'border-blue-600 text-blue-700 bg-blue-50'
-                        : 'border-transparent text-slate-400 hover:text-slate-500 hover:bg-slate-50'
+                        : 'border-transparent bg-white text-slate-500 hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200'
                     }`}
                   >
                     <span className="flex items-center gap-1.5">

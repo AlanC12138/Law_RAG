@@ -485,7 +485,7 @@ export default function AdminPage() {
                     className={`px-5 py-2 text-sm font-medium border-b-2 transition-colors capitalize ${
                       tab === t
                         ? 'border-blue-600 text-blue-700 bg-blue-50'
-                        : 'border-transparent text-slate-400 hover:text-slate-500 hover:bg-slate-50'
+                        : 'border-transparent bg-white text-slate-500 hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200'
                     }`}
                   >
                     {t === 'team' ? `Team (${users.length})` : `Matters (${matters.length})`}
