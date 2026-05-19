@@ -6,11 +6,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import and_, select
+from sqlalchemy import and_, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import check_matter_access, get_current_active_user, require_partner
-from app.db.models import Matter, MatterMembership, User
+from app.db.models import Document, Matter, MatterMembership, QueryLog, User
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
@@ -294,3 +294,40 @@ async def remove_matter_member(
 
     logger.info(f"User {user_id} removed from matter {matter_id} by {current_user.email}")
     return {"message": "User removed from matter"}
+
+
+@router.delete("/{matter_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_matter(
+    matter_id: str,
+    current_user: Annotated[User, Depends(require_partner)],
+    _: Annotated[str, Depends(check_matter_access)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> None:
+    """Permanently delete a matter and all associated data (partner only).
+
+    Cascades through documents (Qdrant vectors included), query logs,
+    and memberships before removing the matter row itself.
+    """
+    from app import services
+
+    matter = await db.get(Matter, matter_id)
+    if matter is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Matter not found")
+
+    # 1. Delete Qdrant vectors for every document in this matter
+    docs_result = await db.execute(select(Document).where(Document.matter_id == matter_id))
+    for doc in docs_result.scalars().all():
+        try:
+            if services.vector_store is not None:
+                services.vector_store.delete_document(doc.id)
+        except Exception as exc:
+            logger.error(f"Failed to purge Qdrant chunks for doc {doc.id}: {exc}", exc_info=True)
+
+    # 2. Cascade-delete dependent rows (SQLite doesn't enforce FK cascades)
+    await db.execute(delete(QueryLog).where(QueryLog.matter_id == matter_id))
+    await db.execute(delete(Document).where(Document.matter_id == matter_id))
+    await db.execute(delete(MatterMembership).where(MatterMembership.matter_id == matter_id))
+    await db.delete(matter)
+    await db.commit()
+
+    logger.info(f"Matter {matter_id} ({matter.name!r}) deleted by {current_user.email}")

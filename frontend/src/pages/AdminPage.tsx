@@ -165,14 +165,17 @@ function MatterCard({
   matter,
   allUsers,
   onUpdated,
+  onDeleted,
 }: {
   matter: MatterDetail
   allUsers: User[]
   onUpdated: (updated: MatterDetail) => void
+  onDeleted: (id: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [addingUserId, setAddingUserId] = useState('')
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
 
   const nonMembers = allUsers.filter(
@@ -206,6 +209,19 @@ function MatterCard({
       setError(err?.response?.data?.detail ?? 'Failed to remove member')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!confirm(`Permanently delete "${matter.name}"? All documents, query history, and memberships will be removed. This cannot be undone.`)) return
+    setDeleting(true)
+    setError('')
+    try {
+      await mattersApi.deleteMatter(matter.id)
+      onDeleted(matter.id)
+    } catch (err: any) {
+      setError(err?.response?.data?.detail ?? 'Failed to delete matter')
+      setDeleting(false)
     }
   }
 
@@ -285,6 +301,17 @@ function MatterCard({
           {nonMembers.length === 0 && (
             <p className="text-xs text-slate-400">All active team members are already on this matter.</p>
           )}
+
+          {/* Danger zone */}
+          <div className="border-t border-red-100 pt-3 mt-1">
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 border border-red-200 hover:border-red-400 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {deleting ? 'Deleting…' : 'Delete matter'}
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -439,6 +466,10 @@ export default function AdminPage() {
     setMatters((prev) => prev.map((m) => (m.id === updated.id ? updated : m)))
   }
 
+  const handleMatterDeleted = (id: string) => {
+    setMatters((prev) => prev.filter((m) => m.id !== id))
+  }
+
   const reloadMatters = async () => {
     const all = await mattersApi.list()
     const details = await Promise.all(all.map((m) => mattersApi.get(m.id)))
@@ -539,6 +570,7 @@ export default function AdminPage() {
                           matter={m}
                           allUsers={users}
                           onUpdated={handleMatterUpdated}
+                          onDeleted={handleMatterDeleted}
                         />
                       ))
                     )}

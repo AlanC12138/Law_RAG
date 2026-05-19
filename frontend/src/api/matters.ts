@@ -29,4 +29,8 @@ export const mattersApi = {
   removeMember: async (matterId: string, userId: string): Promise<void> => {
     await client.delete(`/matters/${matterId}/members/${userId}`)
   },
+
+  deleteMatter: async (matterId: string): Promise<void> => {
+    await client.delete(`/matters/${matterId}`)
+  },
 }
