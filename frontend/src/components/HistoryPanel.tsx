@@ -78,7 +78,7 @@ export default function HistoryPanel({ matter }: HistoryPanelProps) {
           {/* Question row — always visible, click to expand */}
           <button
             onClick={() => setExpanded(expanded === log.id ? null : log.id)}
-            className="w-full text-left px-4 py-3 flex items-start gap-3"
+            className="w-full text-left px-4 py-3 flex items-start gap-3 bg-white hover:bg-blue-50 transition-colors"
           >
             <div className="shrink-0 w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center mt-0.5">
               <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
