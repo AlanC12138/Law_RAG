@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { documentsApi } from '../api/documents'
 import UploadDropzone from './UploadDropzone'
 import type { Document, Matter } from '../types'
@@ -56,19 +56,31 @@ export default function DocumentsPanel({ matter }: DocumentsPanelProps) {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+  // Tracks whether we've already fired the post-processing grace poll
+  const gracePolled = useRef(false)
 
   useEffect(() => {
+    gracePolled.current = false
     loadDocuments()
   }, [matter.id])
 
-  // Poll for status updates while any document is still processing
+  // Poll while any document is pending/processing, then do one grace poll
+  // 5 s after processing finishes to capture summary/clauses written after
+  // the status flips to 'ready'.
   useEffect(() => {
     const hasActive = documents.some(
       (d) => d.status === 'pending' || d.status === 'processing'
     )
-    if (!hasActive) return
-    const timer = setInterval(loadDocuments, 3000)
-    return () => clearInterval(timer)
+    if (hasActive) {
+      gracePolled.current = false
+      const timer = setInterval(loadDocuments, 3000)
+      return () => clearInterval(timer)
+    }
+    if (!gracePolled.current) {
+      gracePolled.current = true
+      const timer = setTimeout(loadDocuments, 5000)
+      return () => clearTimeout(timer)
+    }
   }, [documents])
 
   const loadDocuments = async () => {

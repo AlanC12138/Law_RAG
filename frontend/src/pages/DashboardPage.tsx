@@ -272,11 +272,12 @@ export default function DashboardPage() {
                 ))}
               </div>
 
-              {/* Panel content */}
+              {/* Panel content — all three stay mounted so ChatPanel
+                  preserves unsent input when the user switches tabs. */}
               <div className="flex-1 overflow-hidden">
-                {activeTab === 'chat'      && <ChatPanel      matter={selectedMatter} />}
-                {activeTab === 'documents' && <DocumentsPanel matter={selectedMatter} />}
-                {activeTab === 'history'   && <HistoryPanel   matter={selectedMatter} />}
+                <div className={`h-full ${activeTab === 'chat'      ? '' : 'hidden'}`}><ChatPanel      matter={selectedMatter} /></div>
+                <div className={`h-full ${activeTab === 'documents' ? '' : 'hidden'}`}><DocumentsPanel matter={selectedMatter} /></div>
+                <div className={`h-full ${activeTab === 'history'   ? '' : 'hidden'}`}><HistoryPanel   matter={selectedMatter} /></div>
               </div>
             </div>
           )}
