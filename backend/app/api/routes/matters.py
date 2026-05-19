@@ -296,13 +296,13 @@ async def remove_matter_member(
     return {"message": "User removed from matter"}
 
 
-@router.delete("/{matter_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{matter_id}", status_code=status.HTTP_200_OK)
 async def delete_matter(
     matter_id: str,
     current_user: Annotated[User, Depends(require_partner)],
     _: Annotated[str, Depends(check_matter_access)],
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> None:
+) -> dict[str, str]:
     """Permanently delete a matter and all associated data (partner only).
 
     Cascades through documents (Qdrant vectors included), query logs,
@@ -331,3 +331,4 @@ async def delete_matter(
     await db.commit()
 
     logger.info(f"Matter {matter_id} ({matter.name!r}) deleted by {current_user.email}")
+    return {"message": "Matter deleted"}
