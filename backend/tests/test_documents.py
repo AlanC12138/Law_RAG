@@ -13,7 +13,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.conftest import auth_headers, make_matter
+from tests.conftest import auth_headers
 from app.db.models import Document, DocumentStatus, MatterMembership, UserRole
 
 

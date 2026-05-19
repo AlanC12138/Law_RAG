@@ -15,6 +15,7 @@ from app import services
 from app.api.dependencies import check_matter_access, get_current_active_user
 from app.db.models import Matter, QueryLog, User
 from app.db.session import get_db
+from app.llm.base import BaseLLMProvider
 from app.llm.prompt import build_context_block
 from app.retrieval.hybrid import HybridRetriever
 from app.retrieval.reranker import RankedResult
@@ -205,7 +206,7 @@ async def _stream_sse(
     history: list[dict],
     sources: list[SourceReference],
     results: list[RankedResult],
-    llm,
+    llm: BaseLLMProvider,
     db: AsyncSession,
     user_id: str,
     matter_id: str,
@@ -237,10 +238,15 @@ async def _stream_sse(
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
     finally:
-        # Always log, even if the client disconnects mid-stream
         answer_text = "".join(full_answer)
         if answer_text:
             await _log_query(db, user_id, matter_id, question, answer_text, results)
+        else:
+            # Zero tokens produced — client likely disconnected before the stream started
+            logger.warning(
+                f"Stream for matter {matter_id} produced no tokens "
+                f"(question={question!r}); client may have disconnected"
+            )
 
 
 # ---------------------------------------------------------------------------

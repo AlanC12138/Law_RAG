@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,16 +22,18 @@ class IngestionPipeline:
     Flow:
         1. Extract text (PDF direct or OCR, DOCX paragraph walk)
         2. Chunk with legal-aware boundaries
-        3. Embed each chunk via OpenAI
+        3. Embed each chunk
         4. Store chunks + vectors in Qdrant
-        5. Update the Document record in the database
+        5. Mark the Document record READY in the database
+        6. Generate an LLM summary
+        7. Extract structured key clauses
 
     The pipeline is designed to be called as a FastAPI BackgroundTask so
     uploads return immediately and processing happens asynchronously.
 
-    Embedder and vector store are resolved from the shared ``services``
-    singletons at run time so the pipeline always uses the same Qdrant
-    instance (server mode in Docker) as the query service.
+    Embedder, vector store, and LLM are resolved from the shared ``services``
+    singletons at run time so the pipeline always uses the same instances as
+    the query service.
     """
 
     def __init__(self) -> None:
@@ -65,10 +67,12 @@ class IngestionPipeline:
         logger.info(f"Starting ingestion for document {document_id} ({filename})")
 
         # Resolve shared singletons — guaranteed initialised by lifespan startup
-        embedder = services.embedder
+        embedder = services.get_embedder()
         vector_store = services.vector_store
+        if vector_store is None:
+            raise RuntimeError("Vector store not initialised")
 
-        await self._set_status(db, document_id, DocumentStatus.PROCESSING)
+        await self._update_document(db, document_id, status=DocumentStatus.PROCESSING)
 
         try:
             # ── Step 1: Text extraction ──────────────────────────────────
@@ -111,15 +115,21 @@ class IngestionPipeline:
             ]
             vector_store.upsert_chunks(chunks_with_vectors)
 
-            # ── Step 5: Update Document record ───────────────────────────
-            await self._set_ready(db, document_id, extracted.page_count)
+            # ── Step 5: Mark document READY ──────────────────────────────
+            await self._update_document(
+                db, document_id,
+                status=DocumentStatus.READY,
+                page_count=extracted.page_count,
+                ingested_at=datetime.now(timezone.utc),
+            )
 
-            # ── Steps 6–7: LLM enrichment (summary + clauses) ────────────
-            llm = services.llm
+            # ── Steps 6–7: LLM enrichment (non-fatal if they fail) ───────
+            llm = services.get_llm()
             full_text = "\n\n".join(texts)
+
             try:
                 summary = await llm.summarize(full_text)
-                await self._set_summary(db, document_id, summary)
+                await self._update_document(db, document_id, summary=summary)
                 logger.info(f"Summary generated for document {document_id}")
             except Exception as exc:
                 logger.warning(f"Summarisation failed for {document_id}: {exc}")
@@ -127,7 +137,7 @@ class IngestionPipeline:
             try:
                 clauses = await llm.extract_clauses(full_text)
                 if clauses:
-                    await self._set_clauses(db, document_id, clauses)
+                    await self._update_document(db, document_id, clauses_json=clauses)
                     logger.info(f"Clauses extracted for document {document_id}")
             except Exception as exc:
                 logger.warning(f"Clause extraction failed for {document_id}: {exc}")
@@ -136,54 +146,29 @@ class IngestionPipeline:
 
         except Exception as exc:
             logger.error(f"Ingestion failed for document {document_id}: {exc}", exc_info=True)
-            await self._set_status(db, document_id, DocumentStatus.FAILED)
+            await self._update_document(db, document_id, status=DocumentStatus.FAILED)
 
     # ------------------------------------------------------------------
-    # DB helpers
+    # DB helper
     # ------------------------------------------------------------------
 
     @staticmethod
-    async def _set_status(
+    async def _update_document(
         db: AsyncSession,
         document_id: str,
-        status: DocumentStatus,
+        **fields,
     ) -> None:
-        doc = await db.get(Document, document_id)
-        if doc:
-            doc.status = status
-            await db.commit()
+        """Apply one or more field updates to a Document row and commit.
 
-    @staticmethod
-    async def _set_ready(
-        db: AsyncSession,
-        document_id: str,
-        page_count: int,
-    ) -> None:
+        Args:
+            db:          Open async session.
+            document_id: Primary key of the Document to update.
+            **fields:    Keyword arguments mapping column names to new values.
+        """
         doc = await db.get(Document, document_id)
-        if doc:
-            doc.status = DocumentStatus.READY
-            doc.page_count = page_count
-            doc.ingested_at = datetime.utcnow()
-            await db.commit()
-
-    @staticmethod
-    async def _set_summary(
-        db: AsyncSession,
-        document_id: str,
-        summary: str,
-    ) -> None:
-        doc = await db.get(Document, document_id)
-        if doc:
-            doc.summary = summary
-            await db.commit()
-
-    @staticmethod
-    async def _set_clauses(
-        db: AsyncSession,
-        document_id: str,
-        clauses: dict,
-    ) -> None:
-        doc = await db.get(Document, document_id)
-        if doc:
-            doc.clauses_json = clauses
-            await db.commit()
+        if doc is None:
+            logger.warning(f"_update_document: document {document_id} not found, skipping")
+            return
+        for key, value in fields.items():
+            setattr(doc, key, value)
+        await db.commit()

@@ -1,6 +1,15 @@
 from __future__ import annotations
 
+import json
+import logging
+
 from app.retrieval.reranker import RankedResult
+
+logger = logging.getLogger(__name__)
+
+# Maximum characters of document text sent to the LLM for enrichment tasks
+# (summarisation, clause extraction).  Raise this for models with large context windows.
+MAX_ENRICHMENT_CHARS = 8_000
 
 # ---------------------------------------------------------------------------
 # System prompts
@@ -78,6 +87,34 @@ def build_context_block(results: list[RankedResult]) -> str:
         lines.append("")   # blank line between sources
 
     return "\n".join(lines)
+
+
+def parse_llm_json(raw: str) -> dict:
+    """Parse a JSON string returned by an LLM, tolerating markdown fences.
+
+    Some models (especially Ollama) wrap JSON in triple-backtick blocks.
+    This helper strips those fences before parsing so both OpenAI and
+    Ollama providers can share the same post-processing logic.
+
+    Args:
+        raw: Raw LLM output, may or may not be wrapped in markdown fences.
+
+    Returns:
+        Parsed dict, or ``{}`` if JSON is malformed or empty.
+    """
+    raw = raw.strip()
+    if raw.startswith("```"):
+        parts = raw.split("```")
+        if len(parts) >= 2:
+            inner = parts[1]
+            if inner.startswith("json"):
+                inner = inner[4:]
+            raw = inner.strip()
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        logger.warning("parse_llm_json: could not decode response as JSON")
+        return {}
 
 
 def build_user_message(question: str, context: str) -> str:

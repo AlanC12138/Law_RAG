@@ -10,7 +10,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import check_matter_access, get_current_active_user, require_partner
-from app.db.models import Matter, MatterMembership, User, UserRole
+from app.db.models import Matter, MatterMembership, User
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
@@ -89,28 +89,19 @@ async def list_matters(
 @router.post("", response_model=MatterResponse, status_code=status.HTTP_201_CREATED)
 async def create_matter(
     matter_data: MatterCreate,
-    current_user: Annotated[User, Depends(get_current_active_user)],
+    current_user: Annotated[User, Depends(require_partner)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> MatterResponse:
     """Create a new matter (partner only).
 
     Args:
         matter_data: Matter creation data
-        current_user: Current authenticated user
+        current_user: Current authenticated partner user
         db: Database session
 
     Returns:
         Created matter
-
-    Raises:
-        HTTPException: If user is not a partner
     """
-    if current_user.role != UserRole.PARTNER:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only partners can create matters",
-        )
-
     matter_id = str(uuid.uuid4())
     matter = Matter(
         id=matter_id,
@@ -192,7 +183,7 @@ async def get_matter(
 async def add_matter_member(
     matter_id: str,
     member_request: MatterMemberRequest,
-    current_user: Annotated[User, Depends(get_current_active_user)],
+    current_user: Annotated[User, Depends(require_partner)],
     _: Annotated[str, Depends(check_matter_access)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, str]:
@@ -201,7 +192,7 @@ async def add_matter_member(
     Args:
         matter_id: Matter ID
         member_request: User to add
-        current_user: Current authenticated user
+        current_user: Current authenticated partner user
         _: Matter access verification
         db: Database session
 
@@ -209,14 +200,8 @@ async def add_matter_member(
         Success message
 
     Raises:
-        HTTPException: If user is not a partner or user/matter not found
+        HTTPException: If user/matter not found or user is already a member
     """
-    if current_user.role != UserRole.PARTNER:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only partners can add members to matters",
-        )
-
     user_query = select(User).where(User.id == member_request.user_id)
     user_result = await db.execute(user_query)
     target_user = user_result.scalar_one_or_none()

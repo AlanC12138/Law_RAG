@@ -4,6 +4,7 @@ import logging
 import uuid
 
 from sqlalchemy import select, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.config import get_settings
@@ -44,8 +45,13 @@ async def _migrate_columns(conn) -> None:
         try:
             await conn.execute(text(stmt))
             logger.info(f"Migration applied: {stmt}")
-        except Exception:
-            pass  # column already exists — safe to ignore
+        except OperationalError as exc:
+            # "duplicate column name" is the expected error when the column
+            # already exists — anything else is worth knowing about.
+            if "duplicate column" in str(exc).lower():
+                logger.debug(f"Column already exists, skipping: {stmt}")
+            else:
+                logger.warning(f"Migration skipped due to unexpected error ({stmt}): {exc}")
 
 
 async def seed_admin(db: AsyncSession) -> None:

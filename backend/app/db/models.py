@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum as PyEnum
 from typing import Any
 
@@ -40,7 +40,7 @@ class User(Base):
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.ASSOCIATE)
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(
-        default=datetime.utcnow, server_default=func.now()
+        default=lambda: datetime.now(timezone.utc), server_default=func.now()
     )
 
     matters: Mapped[list[Matter]] = relationship(
@@ -63,7 +63,7 @@ class Matter(Base):
     jurisdiction: Mapped[str] = mapped_column(String(255), default="")
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(
-        default=datetime.utcnow, server_default=func.now()
+        default=lambda: datetime.now(timezone.utc), server_default=func.now()
     )
 
     documents: Mapped[list[Document]] = relationship(back_populates="matter", lazy="selectin")
@@ -84,7 +84,7 @@ class MatterMembership(Base):
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), index=True)
     matter_id: Mapped[str] = mapped_column(String(36), ForeignKey("matters.id"), index=True)
     granted_at: Mapped[datetime] = mapped_column(
-        default=datetime.utcnow, server_default=func.now()
+        default=lambda: datetime.now(timezone.utc), server_default=func.now()
     )
     granted_by: Mapped[str] = mapped_column(String(36), default="")
 
@@ -108,7 +108,7 @@ class Document(Base):
     clauses_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True, default=None)
     ingested_at: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        default=datetime.utcnow, server_default=func.now()
+        default=lambda: datetime.now(timezone.utc), server_default=func.now()
     )
 
     matter: Mapped[Matter] = relationship(back_populates="documents")
@@ -126,7 +126,7 @@ class QueryLog(Base):
     answer_text: Mapped[str] = mapped_column(String(4000))
     source_chunk_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(
-        default=datetime.utcnow, server_default=func.now()
+        default=lambda: datetime.now(timezone.utc), server_default=func.now()
     )
 
     user: Mapped[User] = relationship(back_populates="query_logs")

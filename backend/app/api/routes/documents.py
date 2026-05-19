@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import check_matter_access, get_current_active_user
+from app import services
 from app.config import get_settings
 from app.db.models import Document, DocumentStatus, Matter, User
 from app.db.session import get_db
@@ -240,6 +241,15 @@ async def delete_document(
 
     if document is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+    # Remove vector chunks from Qdrant first — this is the ethical-wall guarantee.
+    # If the vector store call fails we still delete the DB row so the document
+    # is not accessible, but we log the error so orphaned chunks can be cleaned up.
+    try:
+        if services.vector_store is not None:
+            services.vector_store.delete_document(doc_id)
+    except Exception as exc:
+        logger.error(f"Failed to delete Qdrant chunks for document {doc_id}: {exc}", exc_info=True)
 
     await db.delete(document)
     await db.commit()

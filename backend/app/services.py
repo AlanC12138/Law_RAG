@@ -17,12 +17,15 @@ From main.py lifespan:
 From a FastAPI dependency or route:
 
     from app import services
-    retriever = services.hybrid_retriever   # already initialised
+    retriever = services.get_hybrid_retriever()   # guarded accessor
+    llm       = services.get_llm()
 """
 
 import logging
 
 from app.config import Settings
+from app.embeddings.base import BaseEmbeddingProvider
+from app.llm.base import BaseLLMProvider
 from app.retrieval.hybrid import HybridRetriever
 from app.retrieval.reranker import CrossEncoderReranker
 from app.retrieval.vector_store import QdrantVectorStore
@@ -31,10 +34,10 @@ logger = logging.getLogger(__name__)
 
 # Module-level singletons — None until init() is called
 vector_store: QdrantVectorStore | None = None
-embedder = None
+embedder: BaseEmbeddingProvider | None = None
 reranker: CrossEncoderReranker | None = None
 hybrid_retriever: HybridRetriever | None = None
-llm = None
+llm: BaseLLMProvider | None = None
 
 
 def init(settings: Settings) -> None:
@@ -111,8 +114,15 @@ def get_hybrid_retriever() -> HybridRetriever:
     return hybrid_retriever
 
 
-def get_llm():
+def get_llm() -> BaseLLMProvider:
     """FastAPI dependency: return the initialised LLM provider."""
     if llm is None:
         raise RuntimeError("Services not initialised. Call services.init() on startup.")
     return llm
+
+
+def get_embedder() -> BaseEmbeddingProvider:
+    """FastAPI dependency: return the initialised embedding provider."""
+    if embedder is None:
+        raise RuntimeError("Services not initialised. Call services.init() on startup.")
+    return embedder

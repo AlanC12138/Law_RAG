@@ -6,7 +6,13 @@ from typing import AsyncIterator
 from openai import AsyncOpenAI
 
 from app.llm.base import BaseLLMProvider
-from app.llm.prompt import CLAUSE_EXTRACTION_SYSTEM_PROMPT, SUMMARIZE_SYSTEM_PROMPT, SYSTEM_PROMPT
+from app.llm.prompt import (
+    CLAUSE_EXTRACTION_SYSTEM_PROMPT,
+    MAX_ENRICHMENT_CHARS,
+    SUMMARIZE_SYSTEM_PROMPT,
+    SYSTEM_PROMPT,
+    parse_llm_json,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +108,7 @@ class OpenAIProvider(BaseLLMProvider):
         """Generate a concise summary of a legal document.
 
         Args:
-            text: Raw document text (truncated to first 8 000 chars).
+            text: Raw document text (truncated to ``MAX_ENRICHMENT_CHARS``).
 
         Returns:
             3-5 sentence plain-prose summary.
@@ -111,7 +117,7 @@ class OpenAIProvider(BaseLLMProvider):
             model=self.model,
             messages=[
                 {"role": "system", "content": SUMMARIZE_SYSTEM_PROMPT},
-                {"role": "user", "content": f"Document text:\n\n{text[:8000]}"},
+                {"role": "user", "content": f"Document text:\n\n{text[:MAX_ENRICHMENT_CHARS]}"},
             ],
             temperature=0,
         )
@@ -121,25 +127,18 @@ class OpenAIProvider(BaseLLMProvider):
         """Extract structured key clauses from a legal document.
 
         Args:
-            text: Raw document text (truncated to first 8 000 chars).
+            text: Raw document text (truncated to ``MAX_ENRICHMENT_CHARS``).
 
         Returns:
             Dict of extracted clause fields.
         """
-        import json as _json
-
         response = await self._client.chat.completions.create(
             model=self.model,
             messages=[
                 {"role": "system", "content": CLAUSE_EXTRACTION_SYSTEM_PROMPT},
-                {"role": "user", "content": f"Document text:\n\n{text[:8000]}"},
+                {"role": "user", "content": f"Document text:\n\n{text[:MAX_ENRICHMENT_CHARS]}"},
             ],
             temperature=0,
             response_format={"type": "json_object"},
         )
-        raw = response.choices[0].message.content or "{}"
-        try:
-            return _json.loads(raw)
-        except _json.JSONDecodeError:
-            logger.warning("Clause extraction returned non-JSON; skipping")
-            return {}
+        return parse_llm_json(response.choices[0].message.content or "{}")
