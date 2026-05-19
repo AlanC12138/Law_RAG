@@ -113,7 +113,7 @@ function AddUserForm({ onCreated }: { onCreated: (user: User) => void }) {
           placeholder="Full name"
           value={form.full_name}
           onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-          className="col-span-2 sm:col-span-1 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="col-span-2 sm:col-span-1 text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white"
         />
         <input
           required
@@ -121,7 +121,7 @@ function AddUserForm({ onCreated }: { onCreated: (user: User) => void }) {
           placeholder="Email address"
           value={form.email}
           onChange={(e) => setForm({ ...form, email: e.target.value })}
-          className="col-span-2 sm:col-span-1 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="col-span-2 sm:col-span-1 text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white"
         />
         <input
           required
@@ -129,12 +129,12 @@ function AddUserForm({ onCreated }: { onCreated: (user: User) => void }) {
           placeholder="Temporary password"
           value={form.password}
           onChange={(e) => setForm({ ...form, password: e.target.value })}
-          className="col-span-2 sm:col-span-1 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="col-span-2 sm:col-span-1 text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white"
         />
         <select
           value={form.role}
           onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })}
-          className="col-span-2 sm:col-span-1 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="col-span-2 sm:col-span-1 text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white"
         >
           <option value="partner">Partner</option>
           <option value="associate">Associate</option>
@@ -152,7 +152,7 @@ function AddUserForm({ onCreated }: { onCreated: (user: User) => void }) {
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="text-sm text-slate-500 hover:text-slate-700 px-4 py-2 rounded-lg transition-colors"
+          className="text-sm bg-white text-slate-500 hover:text-slate-700 px-4 py-2 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors"
         >
           Cancel
         </button>
@@ -334,27 +334,27 @@ function AddMatterForm({ onCreated }: { onCreated: () => void }) {
           placeholder="Matter name"
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
-          className="col-span-2 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="col-span-2 text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white"
         />
         <input
           required
           placeholder="Client name"
           value={form.client_name}
           onChange={(e) => setForm({ ...form, client_name: e.target.value })}
-          className="col-span-2 sm:col-span-1 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="col-span-2 sm:col-span-1 text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white"
         />
         <input
           placeholder="Jurisdiction (optional)"
           value={form.jurisdiction}
           onChange={(e) => setForm({ ...form, jurisdiction: e.target.value })}
-          className="col-span-2 sm:col-span-1 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="col-span-2 sm:col-span-1 text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white"
         />
         <textarea
           placeholder="Description (optional)"
           value={form.description}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
           rows={2}
-          className="col-span-2 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+          className="col-span-2 text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white resize-none"
         />
       </div>
       <div className="flex gap-2 pt-1">
@@ -368,7 +368,7 @@ function AddMatterForm({ onCreated }: { onCreated: () => void }) {
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="text-sm text-slate-500 hover:text-slate-700 px-4 py-2 rounded-lg transition-colors"
+          className="text-sm bg-white text-slate-500 hover:text-slate-700 px-4 py-2 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors"
         >
           Cancel
         </button>

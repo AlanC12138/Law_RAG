@@ -52,27 +52,27 @@ function NewMatterModal({ onCreated, onClose }: NewMatterModalProps) {
             placeholder="Matter name"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white"
           />
           <input
             required
             placeholder="Client name"
             value={form.client_name}
             onChange={(e) => setForm({ ...form, client_name: e.target.value })}
-            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white"
           />
           <input
             placeholder="Jurisdiction (optional)"
             value={form.jurisdiction}
             onChange={(e) => setForm({ ...form, jurisdiction: e.target.value })}
-            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white"
           />
           <textarea
             placeholder="Description (optional)"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             rows={2}
-            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+            className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white resize-none"
           />
           <div className="flex gap-2 pt-1">
             <button
@@ -85,7 +85,7 @@ function NewMatterModal({ onCreated, onClose }: NewMatterModalProps) {
             <button
               type="button"
               onClick={onClose}
-              className="text-sm text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors"
+              className="text-sm bg-white text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors"
             >
               Cancel
             </button>
