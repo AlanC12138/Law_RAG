@@ -32,7 +32,7 @@ export default function Sidebar({
           <button
             onClick={onNewMatter}
             title="New matter"
-            className="w-6 h-6 flex items-center justify-center rounded-md text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+            className="w-6 h-6 flex items-center justify-center rounded-md bg-white text-blue-400 hover:text-blue-600 hover:bg-blue-100 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
