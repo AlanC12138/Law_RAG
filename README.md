@@ -3,9 +3,11 @@
 Law RAG lets your legal team ask plain-English questions about case files and get precise, cited answers — backed by the documents themselves, never hallucinated.
 
 - Upload PDFs and Word documents to a **Matter**
-- Ask questions in natural language
+- Ask questions in natural language — follow-up questions understand the conversation context
 - Every answer links back to the exact page and passage it came from
+- Uploaded documents are automatically **summarised** and their **key clauses** (governing law, termination, parties, etc.) extracted and displayed
 - Role-based access control and full audit logging built in
+- Partners can manage team members and matters through the admin panel
 
 ---
 
@@ -130,7 +132,27 @@ Law_RAG/
 - Check that `OPENAI_API_KEY` in your `.env` file starts with `sk-` and has no extra spaces
 
 **I forgot my password**
-- Update `ADMIN_PASSWORD` in `.env`, then run `docker compose restart backend`
+- Run the following command to reset the admin password to `changeme`:
+  ```bash
+  docker compose exec backend python -c "
+  import asyncio
+  from app.db.session import AsyncSessionLocal
+  from app.db.models import User
+  from app.core.security import get_password_hash
+  from sqlalchemy import select
+
+  async def main():
+      async with AsyncSessionLocal() as db:
+          result = await db.execute(select(User).where(User.email == 'admin@lawfirm.local'))
+          user = result.scalar_one()
+          user.hashed_password = get_password_hash('changeme')
+          await db.commit()
+          print('Password reset to: changeme')
+
+  asyncio.run(main())
+  "
+  ```
+- Then log in with `admin@lawfirm.local` / `changeme` and change your password immediately
 
 **I want to start over with a clean database**
 - Run `docker compose down -v` then `docker compose up -d` (this deletes all documents and users)
@@ -143,7 +165,7 @@ See the [Developer Guide](INSTRUCTIONS.md) for architecture decisions, branching
 
 ```bash
 # Run the test suite
-docker compose exec backend poetry run pytest -v
+docker compose exec backend pytest -v
 
 # View API documentation
 open http://localhost:8000/docs
