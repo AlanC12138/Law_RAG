@@ -22,33 +22,6 @@ def _stub(name: str, **attrs) -> types.ModuleType:
 
 
 # ---------------------------------------------------------------------------
-# llama_index (embedding provider only — the app doesn't call it in tests)
-# ---------------------------------------------------------------------------
-
-def _make_llama_index_stubs() -> None:
-    # Top-level package
-    li = _stub("llama_index")
-
-    # llama_index.embeddings.openai  — what openai_embeddings.py imports
-    li_embeddings = _stub("llama_index.embeddings")
-    li.embeddings = li_embeddings
-
-    class _FakeOpenAIEmbedding:
-        def __init__(self, *args, **kwargs): pass
-        async def aget_text_embedding(self, text): return [0.0] * 1536
-        async def aget_text_embedding_batch(self, texts): return [[0.0] * 1536] * len(texts)
-
-    li_embeddings_openai = _stub(
-        "llama_index.embeddings.openai",
-        OpenAIEmbedding=_FakeOpenAIEmbedding,
-    )
-    li_embeddings.openai = li_embeddings_openai
-
-
-_make_llama_index_stubs()
-
-
-# ---------------------------------------------------------------------------
 # qdrant_client  — used by QdrantVectorStore
 # ---------------------------------------------------------------------------
 
@@ -163,13 +136,16 @@ class _FakeDocx:
 
 _stub("docx", Document=lambda *a, **kw: _FakeDocx())
 
-# openai (async client used by OpenAIProvider)
+# openai (async client used by OpenAIProvider and OpenAIEmbeddingProvider)
 class _FakeAsyncOpenAI:
     def __init__(self, *args, **kwargs):
         self.chat = types.SimpleNamespace(
             completions=types.SimpleNamespace(
                 create=None  # patched per-test if needed
             )
+        )
+        self.embeddings = types.SimpleNamespace(
+            create=None  # patched per-test if needed
         )
 
 _stub("openai", AsyncOpenAI=_FakeAsyncOpenAI)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from llama_index.embeddings.openai import OpenAIEmbedding
+from openai import AsyncOpenAI
 
 from app.embeddings.base import BaseEmbeddingProvider
 
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
-    """Embedding provider using OpenAI's embedding API via LlamaIndex."""
+    """Embedding provider using OpenAI's embedding API directly."""
 
     def __init__(self, model: str, api_key: str) -> None:
         """Initialize OpenAI embedding provider.
@@ -20,7 +20,8 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
             api_key: OpenAI API key
         """
         self.model = model
-        self.client = OpenAIEmbedding(model=model, api_key=api_key)
+        self._client = AsyncOpenAI(api_key=api_key)
+        logger.info(f"OpenAI embedding provider initialised — model: {model}")
 
     async def embed_text(self, text: str) -> list[float]:
         """Embed a single text string using OpenAI.
@@ -31,8 +32,8 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
         Returns:
             Dense vector representation
         """
-        embedding = await self.client.aget_text_embedding(text)
-        return embedding
+        response = await self._client.embeddings.create(model=self.model, input=text)
+        return response.data[0].embedding
 
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Embed multiple texts efficiently using OpenAI.
@@ -41,7 +42,10 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
             texts: List of texts to embed
 
         Returns:
-            List of dense vector representations
+            List of dense vector representations, same order as input
         """
-        embeddings = await self.client.aget_text_embedding_batch(texts)
-        return embeddings
+        if not texts:
+            return []
+
+        response = await self._client.embeddings.create(model=self.model, input=texts)
+        return [item.embedding for item in sorted(response.data, key=lambda x: x.index)]
