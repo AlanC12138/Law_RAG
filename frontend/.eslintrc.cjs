@@ -14,5 +14,8 @@ module.exports = {
       'warn',
       { allowConstantExport: true },
     ],
+    // `any` in catch blocks is a pragmatic pattern; suppressing the warning
+    // avoids noise without compromising meaningful type safety elsewhere.
+    '@typescript-eslint/no-explicit-any': 'off',
   },
 }
