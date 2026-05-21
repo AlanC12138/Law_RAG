@@ -6,12 +6,6 @@ import type { MatterDetail, User, UserRole } from '../types'
 
 type AdminTab = 'team' | 'matters'
 
-const ROLE_STYLES: Record<UserRole, string> = {
-  partner:   'bg-purple-100 text-purple-700',
-  associate: 'bg-blue-100 text-blue-700',
-  paralegal: 'bg-slate-100 text-slate-600',
-}
-
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------

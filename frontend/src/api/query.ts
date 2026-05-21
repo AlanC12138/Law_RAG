@@ -48,11 +48,9 @@ export async function streamQuery(
   let buffer = ''
 
   try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      buffer += decoder.decode(value, { stream: true })
+    let result = await reader.read()
+    while (!result.done) {
+      buffer += decoder.decode(result.value, { stream: true })
 
       // SSE lines end with \n\n — process all complete events in the buffer
       const parts = buffer.split('\n\n')
@@ -71,6 +69,7 @@ export async function streamQuery(
           }
         }
       }
+      result = await reader.read()
     }
   } finally {
     reader.releaseLock()

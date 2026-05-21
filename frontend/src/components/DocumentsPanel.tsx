@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { documentsApi } from '../api/documents'
 import UploadDropzone from './UploadDropzone'
 import type { Document, Matter } from '../types'
@@ -59,10 +59,22 @@ export default function DocumentsPanel({ matter }: DocumentsPanelProps) {
   // Tracks whether we've already fired the post-processing grace poll
   const gracePolled = useRef(false)
 
+  const loadDocuments = useCallback(async () => {
+    try {
+      const docs = await documentsApi.list(matter.id)
+      setDocuments(docs)
+      setError('')
+    } catch {
+      setError('Failed to load documents')
+    } finally {
+      setLoading(false)
+    }
+  }, [matter.id])
+
   useEffect(() => {
     gracePolled.current = false
     loadDocuments()
-  }, [matter.id])
+  }, [loadDocuments])
 
   // Poll while any document is pending/processing, then do one grace poll
   // 5 s after processing finishes to capture summary/clauses written after
@@ -81,19 +93,7 @@ export default function DocumentsPanel({ matter }: DocumentsPanelProps) {
       const timer = setTimeout(loadDocuments, 5000)
       return () => clearTimeout(timer)
     }
-  }, [documents])
-
-  const loadDocuments = async () => {
-    try {
-      const docs = await documentsApi.list(matter.id)
-      setDocuments(docs)
-      setError('')
-    } catch {
-      setError('Failed to load documents')
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [documents, loadDocuments])
 
   const handleUpload = async (files: File[]) => {
     setUploading(true)
