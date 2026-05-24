@@ -6,11 +6,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import and_, select
+from sqlalchemy import and_, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_current_active_user, check_matter_access
-from app.db.models import Matter, MatterMembership, User, UserRole
+from app.api.dependencies import check_matter_access, get_current_active_user, require_partner
+from app.db.models import Document, Matter, MatterMembership, QueryLog, User
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
@@ -89,28 +89,19 @@ async def list_matters(
 @router.post("", response_model=MatterResponse, status_code=status.HTTP_201_CREATED)
 async def create_matter(
     matter_data: MatterCreate,
-    current_user: Annotated[User, Depends(get_current_active_user)],
+    current_user: Annotated[User, Depends(require_partner)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> MatterResponse:
     """Create a new matter (partner only).
 
     Args:
         matter_data: Matter creation data
-        current_user: Current authenticated user
+        current_user: Current authenticated partner user
         db: Database session
 
     Returns:
         Created matter
-
-    Raises:
-        HTTPException: If user is not a partner
     """
-    if current_user.role != UserRole.PARTNER:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only partners can create matters",
-        )
-
     matter_id = str(uuid.uuid4())
     matter = Matter(
         id=matter_id,
@@ -192,7 +183,7 @@ async def get_matter(
 async def add_matter_member(
     matter_id: str,
     member_request: MatterMemberRequest,
-    current_user: Annotated[User, Depends(get_current_active_user)],
+    current_user: Annotated[User, Depends(require_partner)],
     _: Annotated[str, Depends(check_matter_access)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, str]:
@@ -201,7 +192,7 @@ async def add_matter_member(
     Args:
         matter_id: Matter ID
         member_request: User to add
-        current_user: Current authenticated user
+        current_user: Current authenticated partner user
         _: Matter access verification
         db: Database session
 
@@ -209,14 +200,8 @@ async def add_matter_member(
         Success message
 
     Raises:
-        HTTPException: If user is not a partner or user/matter not found
+        HTTPException: If user/matter not found or user is already a member
     """
-    if current_user.role != UserRole.PARTNER:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only partners can add members to matters",
-        )
-
     user_query = select(User).where(User.id == member_request.user_id)
     user_result = await db.execute(user_query)
     target_user = user_result.scalar_one_or_none()
@@ -252,3 +237,98 @@ async def add_matter_member(
     logger.info(f"User {target_user.email} added to matter {matter_id}")
 
     return {"message": "User added to matter successfully"}
+
+
+@router.delete("/{matter_id}/members/{user_id}", status_code=status.HTTP_200_OK)
+async def remove_matter_member(
+    matter_id: str,
+    user_id: str,
+    current_user: Annotated[User, Depends(require_partner)],
+    _: Annotated[str, Depends(check_matter_access)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict[str, str]:
+    """Remove a user from a matter (partner only).
+
+    The user loses access to all documents and query history within the
+    matter. Existing QueryLog rows are retained for audit purposes.
+
+    Args:
+        matter_id: Matter ID.
+        user_id:   User to remove.
+
+    Returns:
+        Success message.
+
+    Raises:
+        HTTPException: 400 if trying to remove the last member, 404 if
+                       the membership doesn't exist.
+    """
+    membership_result = await db.execute(
+        select(MatterMembership).where(
+            and_(
+                MatterMembership.user_id == user_id,
+                MatterMembership.matter_id == matter_id,
+            )
+        )
+    )
+    membership = membership_result.scalar_one_or_none()
+
+    if membership is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User is not a member of this matter",
+        )
+
+    # Guard: don't allow removing the last member
+    count_result = await db.execute(
+        select(MatterMembership).where(MatterMembership.matter_id == matter_id)
+    )
+    if len(count_result.scalars().all()) <= 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot remove the last member from a matter",
+        )
+
+    await db.delete(membership)
+    await db.commit()
+
+    logger.info(f"User {user_id} removed from matter {matter_id} by {current_user.email}")
+    return {"message": "User removed from matter"}
+
+
+@router.delete("/{matter_id}", status_code=status.HTTP_200_OK)
+async def delete_matter(
+    matter_id: str,
+    current_user: Annotated[User, Depends(require_partner)],
+    _: Annotated[str, Depends(check_matter_access)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict[str, str]:
+    """Permanently delete a matter and all associated data (partner only).
+
+    Cascades through documents (Qdrant vectors included), query logs,
+    and memberships before removing the matter row itself.
+    """
+    from app import services
+
+    matter = await db.get(Matter, matter_id)
+    if matter is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Matter not found")
+
+    # 1. Delete Qdrant vectors for every document in this matter
+    docs_result = await db.execute(select(Document).where(Document.matter_id == matter_id))
+    for doc in docs_result.scalars().all():
+        try:
+            if services.vector_store is not None:
+                services.vector_store.delete_document(doc.id)
+        except Exception as exc:
+            logger.error(f"Failed to purge Qdrant chunks for doc {doc.id}: {exc}", exc_info=True)
+
+    # 2. Cascade-delete dependent rows (SQLite doesn't enforce FK cascades)
+    await db.execute(delete(QueryLog).where(QueryLog.matter_id == matter_id))
+    await db.execute(delete(Document).where(Document.matter_id == matter_id))
+    await db.execute(delete(MatterMembership).where(MatterMembership.matter_id == matter_id))
+    await db.delete(matter)
+    await db.commit()
+
+    logger.info(f"Matter {matter_id} ({matter.name!r}) deleted by {current_user.email}")
+    return {"message": "Matter deleted"}

@@ -1,24 +1,20 @@
-version: '3.8'
+name: law-rag
 
 services:
   qdrant:
     image: qdrant/qdrant:latest
+    restart: unless-stopped
     ports:
       - "6333:6333"
     volumes:
       - qdrant_storage:/qdrant/storage
     environment:
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    restart: unless-stopped
     ports:
       - "8000:8000"
     volumes:
@@ -30,10 +26,19 @@ services:
       - LLM_MODEL=${LLM_MODEL:-gpt-4o}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-3-small}
       - SECRET_KEY=${SECRET_KEY}
+      - QDRANT_URL=http://qdrant:6333
       - QDRANT_PATH=${QDRANT_PATH:-./data/qdrant_storage}
       - APP_ENV=${APP_ENV:-development}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:5173}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@lawfirm.local}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
+      - ADMIN_NAME=${ADMIN_NAME:-Admin Partner}
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434/v1}
+      - OLLAMA_LLM_MODEL=${OLLAMA_LLM_MODEL:-llama3.2}
+      - OLLAMA_EMBEDDING_MODEL=${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+      - EMBEDDING_DIM=${EMBEDDING_DIM:-1536}
     depends_on:
       - qdrant
     healthcheck:
@@ -46,16 +51,35 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    restart: unless-stopped
+    command: npm run dev
     ports:
       - "5173:5173"
     volumes:
       - ./frontend:/app
-      - /app/node_modules
+      - /app/node_modules   # anonymous volume keeps the Docker-built node_modules intact
     environment:
       - VITE_API_URL=http://localhost:8000
+      - BACKEND_URL=http://backend:8000   # used by vite.config.ts proxy (server-side)
     depends_on:
       - backend
+
+# ---------------------------------------------------------------------------
+# Optional: Ollama (local LLM)
+# Uncomment this service and set LLM_PROVIDER=ollama in your .env to run
+# entirely without OpenAI.  Then pull your models:
+#   docker compose exec ollama ollama pull llama3.2
+#   docker compose exec ollama ollama pull nomic-embed-text
+# ---------------------------------------------------------------------------
+#  ollama:
+#    image: ollama/ollama:latest
+#    restart: unless-stopped
+#    ports:
+#      - "11434:11434"
+#    volumes:
+#      - ollama_data:/root/.ollama
 
 volumes:
   qdrant_storage:
   app_data:
+  # ollama_data:

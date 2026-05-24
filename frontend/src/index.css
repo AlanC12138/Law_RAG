@@ -2,58 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Typography ─────────────────────────────────────────────────────── */
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
+/* ── Element resets ──────────────────────────────────────────────────
+   Tailwind utility classes (@layer utilities) always override @layer base,
+   so any bg-* / text-* class on an element takes full precedence.
+   These resets just ensure un-styled elements don't inherit the dark
+   Vite boilerplate defaults in environments with no OS colour preference.
+───────────────────────────────────────────────────────────────────── */
+@layer base {
+  /* Buttons: transparent bg — Tailwind bg-* classes control colour.
+     Removes the #1a1a1a dark default from the Vite template. */
   button {
-    background-color: #f9f9f9;
+    @apply bg-transparent cursor-pointer;
+    font-family: inherit;
+  }
+
+  /* Inputs / textareas / selects: white by default so any field that
+     doesn't carry an explicit bg-* class stays light.
+     bg-slate-50, bg-blue-50, etc. still override this normally. */
+  input,
+  textarea,
+  select {
+    @apply bg-white;
+    font-family: inherit;
   }
 }

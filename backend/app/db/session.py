@@ -23,6 +23,9 @@ async_session_maker = sessionmaker(
     autocommit=False,
 )
 
+# Alias used by main.py lifespan and any other code expecting this name
+AsyncSessionLocal = async_session_maker
+
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Get async database session for dependency injection.
