@@ -1,5 +1,12 @@
 # Law RAG — AI-Powered Legal Document Assistant
 
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?style=flat&logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-TypeScript-61DAFB?style=flat&logo=react&logoColor=black)
+![Qdrant](https://img.shields.io/badge/Qdrant-Vector%20DB-DC244C?style=flat)
+![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-412991?style=flat&logo=openai&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)
+
 Law RAG lets your legal team ask plain-English questions about case files and get precise, cited answers — backed by the documents themselves, never hallucinated.
 
 - Upload PDFs and Word documents to a **Matter**
@@ -161,12 +168,32 @@ Law_RAG/
 
 ## For Developers
 
-See the [Developer Guide](INSTRUCTIONS.md) for architecture decisions, branching strategy, and how to run tests.
+### Architecture
+
+Law RAG is a full-stack RAG (Retrieval-Augmented Generation) platform built for production use cases where answer accuracy and source traceability matter.
+
+**Retrieval pipeline** — when a query comes in, the backend runs two searches in parallel: a BM25 lexical search (via `rank-bm25`) over matter-scoped chunks, and a dense vector search (via Qdrant, cosine similarity, 1536-dim embeddings). Results are fused with **Reciprocal Rank Fusion** (RRF, k=60) to get the best of both approaches, then the top candidates are reranked by a **cross-encoder** (`ms-marco-MiniLM-L-6-v2`) for precision. The final top-k passages are injected as grounded context into the LLM prompt.
+
+**LLM layer** — supports OpenAI GPT-4o (default) and a local Ollama fallback (llama3.2, mistral). Answers are streamed token-by-token via **SSE** (Server-Sent Events) so the UI feels responsive on long answers. After document upload, the pipeline runs GPT-4o summarization and clause extraction (governing law, termination, parties, etc.) as background tasks.
+
+**Auth & access control** — JWT-based authentication with bcrypt hashing. Three roles: `partner`, `associate`, `paralegal`. Every query is scoped to a Matter, and Matter membership is enforced at the API layer. Partners see full audit logs; others see only their own query history.
+
+**Stack:** FastAPI · SQLAlchemy (async) · SQLite · Qdrant · sentence-transformers · HuggingFace · OpenAI SDK · React · TypeScript · Vite · Docker Compose
+
+### Running Locally (Developer Mode)
 
 ```bash
+# Clone and configure
+cp .env.example .env   # fill in OPENAI_API_KEY and SECRET_KEY
+
+# Start all services
+docker compose up -d
+
 # Run the test suite
 docker compose exec backend pytest -v
 
-# View API documentation
+# View auto-generated API docs
 open http://localhost:8000/docs
 ```
+
+See [INSTRUCTIONS.md](INSTRUCTIONS.md) for architecture decisions, branching strategy, and contribution guidelines.
