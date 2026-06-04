@@ -5,6 +5,7 @@ import type { Document, Matter } from '../types'
 
 interface DocumentsPanelProps {
   matter: Matter
+  highlightDocId?: string | null
 }
 
 // Friendly display labels for extracted clause keys
@@ -51,13 +52,22 @@ const STATUS_CONFIG = {
   failed:     { label: 'Failed',     className: 'bg-red-100 text-red-600' },
 }
 
-export default function DocumentsPanel({ matter }: DocumentsPanelProps) {
+export default function DocumentsPanel({ matter, highlightDocId }: DocumentsPanelProps) {
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   // Tracks whether we've already fired the post-processing grace poll
   const gracePolled = useRef(false)
+  // Refs to each document card for scroll-to-highlight
+  const docCardRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  // Scroll to and highlight a document card when a chat source is clicked
+  useEffect(() => {
+    if (!highlightDocId) return
+    const el = docCardRefs.current[highlightDocId]
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [highlightDocId])
 
   const loadDocuments = useCallback(async () => {
     try {
@@ -161,7 +171,12 @@ export default function DocumentsPanel({ matter }: DocumentsPanelProps) {
               return (
                 <div
                   key={doc.id}
-                  className="bg-white border border-blue-100 rounded-xl px-4 py-3 group hover:border-blue-300 transition-colors"
+                  ref={(el) => { docCardRefs.current[doc.id] = el }}
+                  className={`bg-white rounded-xl px-4 py-3 group transition-all ${
+                    highlightDocId === doc.id
+                      ? 'border-2 border-blue-500 ring-2 ring-blue-200 ring-offset-1'
+                      : 'border border-blue-100 hover:border-blue-300'
+                  }`}
                 >
                   {/* Top row: icon + name + status + delete */}
                   <div className="flex items-center gap-3">

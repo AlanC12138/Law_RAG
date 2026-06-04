@@ -2,59 +2,42 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime
+import uuid
 from pathlib import Path
 from typing import Callable
 
-from watchdog.events import FileSystemEventHandler, FileModifiedEvent
+from watchdog.events import FileCreatedEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
 from app.connectors.base import BaseDocumentConnector, DocumentInfo
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+# File types accepted by the ingestion pipeline
+_ALLOWED_TYPES = {"pdf", "docx", "doc"}
+
 
 class FileSystemEventListener(FileSystemEventHandler):
-    """Watchdog event handler for file system changes."""
+    """Watchdog event handler — fires callback only on new file creation."""
 
     def __init__(self, callback: Callable[[str], None]) -> None:
-        """Initialize event listener.
-
-        Args:
-            callback: Function to call when files are modified
-        """
         self.callback = callback
 
-    def on_modified(self, event: FileModifiedEvent) -> None:
-        """Handle file modification events.
-
-        Args:
-            event: Watchdog file event
-        """
+    def on_created(self, event: FileCreatedEvent) -> None:
         if not event.is_directory:
-            self.callback(event.src_path)
+            self.callback(str(event.src_path))
 
 
 class FolderWatchConnector(BaseDocumentConnector):
     """Document connector that watches a local folder for new documents."""
 
     def __init__(self, watch_path: str) -> None:
-        """Initialize folder watch connector.
-
-        Args:
-            watch_path: Path to folder to watch
-        """
         self.watch_path = Path(watch_path)
         self.watch_path.mkdir(parents=True, exist_ok=True)
         self.observer: Observer | None = None
-        self.callback: Callable[[str], None] | None = None
 
     async def list_documents(self) -> list[DocumentInfo]:
-        """List all documents in the watched folder.
-
-        Returns:
-            List of DocumentInfo objects
-        """
         documents = []
         for file_path in self.watch_path.rglob("*"):
             if file_path.is_file():
@@ -71,36 +54,15 @@ class FolderWatchConnector(BaseDocumentConnector):
         return documents
 
     async def fetch_document(self, doc_id: str) -> bytes:
-        """Fetch document bytes from the watched folder.
-
-        Args:
-            doc_id: Relative path to document
-
-        Returns:
-            Raw file bytes
-
-        Raises:
-            FileNotFoundError: If file does not exist
-        """
         file_path = self.watch_path / doc_id
         if not file_path.exists():
             raise FileNotFoundError(f"Document not found: {doc_id}")
-
         return file_path.read_bytes()
 
     async def get_metadata(self, doc_id: str) -> dict[str, str]:
-        """Get metadata for a document.
-
-        Args:
-            doc_id: Relative path to document
-
-        Returns:
-            Metadata dictionary
-        """
         file_path = self.watch_path / doc_id
         if not file_path.exists():
             raise FileNotFoundError(f"Document not found: {doc_id}")
-
         stat = file_path.stat()
         return {
             "filename": file_path.name,
@@ -110,25 +72,166 @@ class FolderWatchConnector(BaseDocumentConnector):
         }
 
     def start_watching(self, callback: Callable[[str], None]) -> None:
-        """Start watching folder for file changes.
-
-        Args:
-            callback: Function to call when files are added/modified
-        """
         if self.observer is not None:
             return
-
-        self.callback = callback
         self.observer = Observer()
-        event_handler = FileSystemEventListener(callback)
-        self.observer.schedule(event_handler, str(self.watch_path), recursive=True)
+        self.observer.schedule(
+            FileSystemEventListener(callback),
+            str(self.watch_path),
+            recursive=True,
+        )
         self.observer.start()
-        logger.info(f"Started watching folder: {self.watch_path}")
+        logger.info(f"Folder watch started: {self.watch_path}")
 
     def stop_watching(self) -> None:
-        """Stop watching folder for file changes."""
         if self.observer is not None:
             self.observer.stop()
             self.observer.join()
             self.observer = None
-            logger.info(f"Stopped watching folder: {self.watch_path}")
+            logger.info(f"Folder watch stopped: {self.watch_path}")
+
+
+# ---------------------------------------------------------------------------
+# Async ingest logic
+# ---------------------------------------------------------------------------
+
+async def _ingest_watched_file(file_path: str, watch_root: Path) -> None:
+    """Auto-ingest a file dropped into the watch folder.
+
+    Expected directory structure::
+
+        {watch_root}/{matter_id}/filename.pdf
+
+    The sub-directory name must be a valid Matter UUID.  Files dropped
+    directly in ``watch_root`` (no subdirectory) are ignored.
+
+    Args:
+        file_path:  Absolute path to the newly created file.
+        watch_root: Root of the watched directory tree.
+    """
+    from sqlalchemy import select as sa_select
+
+    from app.config import get_settings as _get_settings
+    from app.db.models import Document as DBDocument, DocumentStatus, Matter
+    from app.db.session import AsyncSessionLocal
+    from app.ingestion.pipeline import IngestionPipeline
+
+    path = Path(file_path)
+
+    # Skip hidden / temporary files
+    if path.name.startswith(".") or path.suffix.lower() in {".tmp", ".part", ".swp"}:
+        return
+
+    file_type = path.suffix.lstrip(".").lower()
+    if file_type not in _ALLOWED_TYPES:
+        logger.debug(f"Watch folder: skipping unsupported type '{file_type}': {path.name}")
+        return
+
+    # Derive matter_id from the immediate subdirectory name
+    try:
+        rel = path.relative_to(watch_root)
+    except ValueError:
+        return
+
+    parts = rel.parts
+    if len(parts) < 2:
+        logger.debug(f"Watch folder: {path.name} is in root (no matter subdirectory) — skipped")
+        return
+
+    matter_id = parts[0]
+    filename = path.name
+
+    # Small delay — give the OS time to finish writing the file
+    await asyncio.sleep(0.5)
+
+    _settings = _get_settings()
+
+    async with AsyncSessionLocal() as db:
+        # Validate matter exists
+        matter = await db.get(Matter, matter_id)
+        if matter is None:
+            logger.warning(
+                f"Watch folder: no matter with id={matter_id!r} — "
+                f"file {filename!r} not ingested"
+            )
+            return
+
+        # Skip if already ingested (same filename in same matter)
+        existing = await db.execute(
+            sa_select(DBDocument).where(
+                (DBDocument.matter_id == matter_id) & (DBDocument.filename == filename)
+            )
+        )
+        if existing.scalar_one_or_none() is not None:
+            logger.debug(
+                f"Watch folder: {filename!r} already ingested in matter '{matter.name}'"
+            )
+            return
+
+        # Read bytes
+        try:
+            file_bytes = path.read_bytes()
+        except OSError as exc:
+            logger.error(f"Watch folder: could not read {file_path!r}: {exc}")
+            return
+
+        logger.info(
+            f"Watch folder: auto-ingesting {filename!r} → matter '{matter.name}'"
+        )
+
+        # Persist file copy next to regular uploads
+        doc_id = str(uuid.uuid4())
+        storage_dir = Path(_settings.data_dir) / "documents" / matter_id
+        storage_dir.mkdir(parents=True, exist_ok=True)
+        storage_path = storage_dir / f"{doc_id}.{file_type}"
+        storage_path.write_bytes(file_bytes)
+
+        # Create DB record
+        document = DBDocument(
+            id=doc_id,
+            matter_id=matter_id,
+            filename=filename,
+            file_type=file_type,
+            storage_path=str(storage_path),
+            status=DocumentStatus.PENDING,
+            page_count=0,
+        )
+        db.add(document)
+        await db.commit()
+
+        # Run ingestion pipeline (same as manual upload)
+        pipeline = IngestionPipeline()
+        await pipeline.run(
+            document_id=doc_id,
+            file_bytes=file_bytes,
+            file_type=file_type,
+            matter_id=matter_id,
+            filename=filename,
+            db=db,
+        )
+
+
+def make_ingest_callback(
+    watch_root: Path,
+    loop: asyncio.AbstractEventLoop,
+) -> Callable[[str], None]:
+    """Return a thread-safe sync callback suitable for ``start_watching``.
+
+    Watchdog fires callbacks from a background thread.  This factory
+    bridges that thread back to the FastAPI asyncio event loop so that
+    ``_ingest_watched_file`` can safely use ``await``.
+
+    Args:
+        watch_root: Root of the watched directory tree.
+        loop:       The running asyncio event loop (from ``get_running_loop``).
+
+    Returns:
+        A synchronous callable that schedules the async ingest coroutine.
+    """
+
+    def _callback(file_path: str) -> None:
+        asyncio.run_coroutine_threadsafe(
+            _ingest_watched_file(file_path, watch_root), loop
+        )
+
+    return _callback

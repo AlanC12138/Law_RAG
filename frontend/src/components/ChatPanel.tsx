@@ -6,9 +6,10 @@ import type { ChatMessage as ChatMessageType, Matter, SourceReference } from '..
 
 interface ChatPanelProps {
   matter: Matter
+  onSourceClick?: (src: SourceReference) => void
 }
 
-export default function ChatPanel({ matter }: ChatPanelProps) {
+export default function ChatPanel({ matter, onSourceClick }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessageType[]>([])
   const [question, setQuestion] = useState('')
   const [isQuerying, setIsQuerying] = useState(false)
@@ -136,7 +137,7 @@ export default function ChatPanel({ matter }: ChatPanelProps) {
             </div>
           </div>
         ) : (
-          messages.map((msg) => <ChatMessage key={msg.id} message={msg} />)
+          messages.map((msg) => <ChatMessage key={msg.id} message={msg} onSourceClick={onSourceClick} />)
         )}
         <div ref={bottomRef} />
       </div>
