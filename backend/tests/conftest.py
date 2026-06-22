@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.core.security import create_access_token, get_password_hash
+from app.core.security import create_access_token, create_refresh_token, get_password_hash
 from app.db.base import Base
 from app.db.models import Matter, MatterMembership, User, UserRole
 from app.db.session import get_db
@@ -129,11 +129,18 @@ async def make_matter(
 
 
 def auth_headers(user: User) -> dict[str, str]:
-    """Return Authorization headers with a fresh token for *user*."""
+    """Return Authorization headers with a fresh access token for *user*."""
     token = create_access_token(
         data={"user_id": user.id, "email": user.email, "role": user.role}
     )
     return {"Authorization": f"Bearer {token}"}
+
+
+def make_refresh_token(user: User) -> str:
+    """Return a fresh refresh token for *user*."""
+    return create_refresh_token(
+        data={"user_id": user.id, "email": user.email, "role": user.role}
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -5,7 +5,8 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.conftest import auth_headers, make_user
+from tests.conftest import auth_headers, make_refresh_token, make_user
+from app.core.security import create_access_token
 from app.db.models import UserRole
 
 
@@ -101,3 +102,95 @@ async def test_logout(async_client: AsyncClient, associate) -> None:
     )
     assert response.status_code == 200
     assert response.json()["message"] == "Successfully logged out"
+
+
+# ---------------------------------------------------------------------------
+# Token refresh
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_refresh_returns_new_usable_tokens(
+    async_client: AsyncClient, associate
+) -> None:
+    """A valid refresh token yields a new access+refresh pair, and the new
+    access token actually works against a protected endpoint."""
+    refresh_token = make_refresh_token(associate)
+
+    response = await async_client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": refresh_token},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert "access_token" in body
+    assert "refresh_token" in body
+
+    me = await async_client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {body['access_token']}"},
+    )
+    assert me.status_code == 200
+    assert me.json()["email"] == associate.email
+
+
+@pytest.mark.asyncio
+async def test_refresh_rejects_access_token(
+    async_client: AsyncClient, associate
+) -> None:
+    """An access token must not work as a refresh token."""
+    access_token = create_access_token(
+        data={
+            "user_id": associate.id,
+            "email": associate.email,
+            "role": associate.role,
+        }
+    )
+    response = await async_client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": access_token},
+    )
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_rejected_as_access_token(
+    async_client: AsyncClient, associate
+) -> None:
+    """A refresh token must not work as a Bearer access token on a
+    protected endpoint — closes the gap where verify_token previously
+    ignored the `type` claim entirely."""
+    refresh_token = make_refresh_token(associate)
+    response = await async_client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {refresh_token}"},
+    )
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_refresh_rejects_malformed_token(async_client: AsyncClient) -> None:
+    """A garbage string is rejected, not a 500."""
+    response = await async_client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": "not-a-real-token"},
+    )
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_refresh_rejects_inactive_user(
+    async_client: AsyncClient, test_db: AsyncSession
+) -> None:
+    """A still-valid refresh token for a deactivated user is rejected."""
+    inactive = await make_user(
+        test_db,
+        email="inactive-refresh@firm.com",
+        role=UserRole.ASSOCIATE,
+        is_active=False,
+    )
+    refresh_token = make_refresh_token(inactive)
+    response = await async_client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": refresh_token},
+    )
+    assert response.status_code == 401

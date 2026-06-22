@@ -62,20 +62,32 @@ def create_refresh_token(data: dict[str, Any]) -> str:
     return encoded_jwt
 
 
-def verify_token(token: str) -> TokenData:
+def verify_token(token: str, expected_type: str = "access") -> TokenData:
     """Verify and decode JWT token.
+
+    Access tokens carry no ``type`` claim (defaults to ``"access"``);
+    refresh tokens are minted with ``type: "refresh"`` by
+    :func:`create_refresh_token`. Passing the wrong token type — e.g. a
+    refresh token to an endpoint expecting an access token — fails
+    verification, so the two cannot be used interchangeably.
 
     Args:
         token: JWT token to verify
+        expected_type: Either "access" or "refresh"
 
     Returns:
         TokenData with claims
 
     Raises:
-        JWTError: If token is invalid or expired
+        JWTError: If token is invalid, expired, or the wrong type
     """
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+
+        token_type = payload.get("type", "access")
+        if token_type != expected_type:
+            raise JWTError(f"Expected a {expected_type} token, got {token_type}")
+
         user_id: str | None = payload.get("user_id")
         email: str | None = payload.get("email")
         role: str | None = payload.get("role")

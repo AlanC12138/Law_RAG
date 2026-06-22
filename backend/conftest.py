@@ -129,12 +129,10 @@ class _FakeDocument:
 
 _stub("fitz", open=lambda *a, **kw: _FakeDocument())
 
-# python-docx
-class _FakeDocx:
-    paragraphs = []
-    tables = []
-
-_stub("docx", Document=lambda *a, **kw: _FakeDocx())
+# python-docx is intentionally NOT stubbed — it's a lightweight pure-Python
+# XML library (no ML weights, no native binaries), and both ocr.py's DOCX
+# extraction and the query-log export endpoint call real python-docx
+# methods (add_heading, add_paragraph, save) that a thin stub can't satisfy.
 
 # openai (async client used by OpenAIProvider and OpenAIEmbeddingProvider)
 class _FakeAsyncOpenAI:
