@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Citation jump-to-source** — chat source cards have copy-passage and jump-to-document buttons; jumping switches to the Documents tab and highlights the matching document card
+- **Export query history** — download a matter's full Q&A history as a formatted `.docx` from the History tab
+- **Folder-watch auto-ingest** — drop a PDF/DOCX into `data/watch/{matter_id}/` and it's automatically ingested, no manual upload needed
+- **Matter ID display** — the admin panel now shows each matter's UUID (with a copy button), needed for folder-watch and direct API use
+- **Silent token refresh** — a new `POST /auth/refresh` endpoint and a frontend interceptor retry a single 401 via refresh before forcing logout, so a session no longer drops mid-use when the access token expires
+- **PostgreSQL as the default database** — `docker compose up` now starts a Postgres 16 service; schema is managed by Alembic migrations that run automatically on backend startup. SQLite remains available as a zero-dependency fallback for running the API without Docker
+
+### Fixed
+- `verify_token()` now checks the JWT `type` claim — closes a gap where a refresh token could previously be used directly as an access token
+- `backend/conftest.py` stubbed `python-docx` with a fake class that didn't support the methods the new export endpoint needs; removed the stub since python-docx is lightweight enough to run for real in tests
+
+### Changed
+- Removed the unused `pymupdf` dependency (never imported — all PDF/OCR extraction goes through `pdfplumber`)
+- Pinned the Qdrant image to `v1.17.1` instead of `:latest`, which had silently drifted well ahead of the `qdrant-client` version pin
+- `setup.sh` / `setup.bat` now generate a random Postgres password alongside the existing `SECRET_KEY` generation
+
 ## [0.2.0] - 2026-05-19
 
 ### Added

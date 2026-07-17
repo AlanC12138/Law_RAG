@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
+from pathlib import Path
 
 from sqlalchemy import select, text
 from sqlalchemy.exc import OperationalError
@@ -14,20 +16,56 @@ from app.db.models import User, UserRole
 
 logger = logging.getLogger(__name__)
 
+# backend/ — where alembic.ini and alembic/ live. Three parents up from
+# this file: app/db/init_db.py -> app/db -> app -> backend/.
+_BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent
+
 
 async def create_tables() -> None:
-    """Create all database tables if they do not exist.
+    """Bring the database schema up to date.
 
-    In development this replaces running ``alembic upgrade head`` manually.
-    In production, prefer Alembic so migrations are tracked and reversible.
+    Postgres (the default when running via docker-compose) is migrated
+    with real, version-tracked Alembic revisions — the authoritative path.
+    SQLite (the lightweight fallback for running the API without Docker,
+    and what the test suite uses) keeps the original create_all + ad hoc
+    column patcher, since introducing Alembic's version tracking there
+    would be a needless complication for a throwaway dev database.
     """
     settings = get_settings()
-    engine = create_async_engine(settings.database_url)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        await _migrate_columns(conn)
-    await engine.dispose()
+    if settings.database_url.startswith("postgresql"):
+        await _run_alembic_upgrade()
+    else:
+        engine = create_async_engine(settings.database_url)
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            await _migrate_columns(conn)
+        await engine.dispose()
     logger.info("Database tables verified / created")
+
+
+async def _run_alembic_upgrade() -> None:
+    """Run ``alembic upgrade head`` as a subprocess against Postgres.
+
+    Alembic's Config/command API isn't safely callable from within a
+    running asyncio event loop — env.py itself calls ``asyncio.run()``
+    internally to support the async engine, and asyncio.run() cannot be
+    nested inside an already-running loop (which this function's caller,
+    the FastAPI lifespan, is). Shelling out avoids that entirely and is
+    otherwise identical to running ``alembic upgrade head`` by hand.
+    """
+    proc = await asyncio.create_subprocess_exec(
+        "alembic",
+        "upgrade",
+        "head",
+        cwd=str(_BACKEND_ROOT),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+    )
+    output, _ = await proc.communicate()
+    decoded = output.decode(errors="replace").strip()
+    if proc.returncode != 0:
+        raise RuntimeError(f"alembic upgrade head failed (exit {proc.returncode}):\n{decoded}")
+    logger.info(f"Alembic migrations applied:\n{decoded}")
 
 
 async def _migrate_columns(conn) -> None:

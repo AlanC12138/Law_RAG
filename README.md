@@ -162,7 +162,7 @@ Law_RAG/
 - Then log in with `admin@lawfirm.local` / `changeme` and change your password immediately
 
 **I want to start over with a clean database**
-- Run `docker compose down -v` then `docker compose up -d` (this deletes all documents and users)
+- Run `docker compose down -v` then `docker compose up -d` (this deletes the Postgres database, Qdrant vectors, and all uploaded documents)
 
 ---
 
@@ -178,7 +178,9 @@ Law RAG is a full-stack RAG (Retrieval-Augmented Generation) platform built for 
 
 **Auth & access control** — JWT-based authentication with bcrypt hashing. Three roles: `partner`, `associate`, `paralegal`. Every query is scoped to a Matter, and Matter membership is enforced at the API layer. Partners see full audit logs; others see only their own query history.
 
-**Stack:** FastAPI · SQLAlchemy (async) · SQLite · Qdrant · sentence-transformers · HuggingFace · OpenAI SDK · React · TypeScript · Vite · Docker Compose
+**Database** — PostgreSQL is the default when running via `docker compose up`; schema changes are tracked with Alembic migrations that run automatically on startup. SQLite remains available as a zero-dependency fallback for running the API directly without Docker (`DATABASE_URL=sqlite+aiosqlite:///...`) — see [backend/.env.example](backend/.env.example).
+
+**Stack:** FastAPI · SQLAlchemy (async) · PostgreSQL · Qdrant · sentence-transformers · HuggingFace · OpenAI SDK · React · TypeScript · Vite · Docker Compose
 
 ### Running Locally (Developer Mode)
 
