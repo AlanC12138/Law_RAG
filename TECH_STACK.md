@@ -39,7 +39,7 @@
 | Concern | Choice | Notes |
 |---|---|---|
 | Vector database | Qdrant (embedded mode) | Runs in-process, no separate server; strong metadata filtering; easy to move to server mode later |
-| Relational database | SQLite (MVP) | Zero-config, single file; Alembic migrations from day one ensure clean path to PostgreSQL |
+| Relational database | PostgreSQL (default) | Started via docker-compose; schema managed by Alembic migrations. SQLite remains available as a zero-config fallback for running the API without Docker |
 | Migrations | Alembic | Schema versioning from day one |
 | ORM | SQLAlchemy 2.0 | Async-compatible |
 
@@ -87,7 +87,6 @@
 | Desktop packaging | Electron (frontend) + PyInstaller (backend) | Wraps local web server in a desktop app |
 | Auto-update | Electron auto-updater | Built into Electron |
 | Local LLM | Ollama | Drop-in replacement for OpenAI API |
-| Database (production) | PostgreSQL | SQLAlchemy + Alembic already support it; migration is straightforward |
 
 ---
 
