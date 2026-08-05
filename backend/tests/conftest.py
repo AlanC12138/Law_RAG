@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 import pytest
 import pytest_asyncio
@@ -20,6 +20,7 @@ from app.main import app
 # Session-scoped event loop — required by pytest-asyncio 0.21 when any
 # session-scoped async fixture exists (e.g. create_test_tables).
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -76,6 +77,7 @@ async def test_db() -> AsyncGenerator[AsyncSession, None]:
 # Helper: create users / matters in a session
 # ---------------------------------------------------------------------------
 
+
 async def make_user(
     db: AsyncSession,
     *,
@@ -130,22 +132,19 @@ async def make_matter(
 
 def auth_headers(user: User) -> dict[str, str]:
     """Return Authorization headers with a fresh access token for *user*."""
-    token = create_access_token(
-        data={"user_id": user.id, "email": user.email, "role": user.role}
-    )
+    token = create_access_token(data={"user_id": user.id, "email": user.email, "role": user.role})
     return {"Authorization": f"Bearer {token}"}
 
 
 def make_refresh_token(user: User) -> str:
     """Return a fresh refresh token for *user*."""
-    return create_refresh_token(
-        data={"user_id": user.id, "email": user.email, "role": user.role}
-    )
+    return create_refresh_token(data={"user_id": user.id, "email": user.email, "role": user.role})
 
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest_asyncio.fixture()
 async def partner(test_db: AsyncSession) -> User:

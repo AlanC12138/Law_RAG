@@ -3,6 +3,7 @@
 Document upload tests mock the ingestion pipeline so tests don't require
 real ML models or a running Qdrant instance.
 """
+
 from __future__ import annotations
 
 import io
@@ -13,13 +14,13 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.models import Document, DocumentStatus
 from tests.conftest import auth_headers
-from app.db.models import Document, DocumentStatus, MatterMembership, UserRole
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def pdf_upload(filename: str = "contract.pdf") -> tuple[str, tuple]:
     """Return a (field_name, (filename, bytes, content_type)) tuple for multipart."""
@@ -29,12 +30,20 @@ def pdf_upload(filename: str = "contract.pdf") -> tuple[str, tuple]:
 
 def docx_upload(filename: str = "brief.docx") -> tuple[str, tuple]:
     content = b"PK fake docx content"
-    return ("file", (filename, io.BytesIO(content), "application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+    return (
+        "file",
+        (
+            filename,
+            io.BytesIO(content),
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
 # POST /matters/{id}/documents
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_upload_pdf(
@@ -124,6 +133,7 @@ async def test_upload_matter_not_found(
 # GET /matters/{id}/documents
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_list_documents(
     async_client: AsyncClient,
@@ -171,6 +181,7 @@ async def test_list_documents_non_member_denied(
 # GET /matters/{id}/documents/{doc_id}
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_get_document(
     async_client: AsyncClient,
@@ -203,9 +214,7 @@ async def test_get_document(
 
 
 @pytest.mark.asyncio
-async def test_get_document_not_found(
-    async_client: AsyncClient, partner, matter
-) -> None:
+async def test_get_document_not_found(async_client: AsyncClient, partner, matter) -> None:
     response = await async_client.get(
         f"/api/v1/matters/{matter.id}/documents/{uuid.uuid4()}",
         headers=auth_headers(partner),
@@ -216,6 +225,7 @@ async def test_get_document_not_found(
 # ---------------------------------------------------------------------------
 # DELETE /matters/{id}/documents/{doc_id}
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_delete_document(
@@ -255,9 +265,7 @@ async def test_delete_document(
 
 
 @pytest.mark.asyncio
-async def test_delete_document_not_found(
-    async_client: AsyncClient, partner, matter
-) -> None:
+async def test_delete_document_not_found(async_client: AsyncClient, partner, matter) -> None:
     response = await async_client.delete(
         f"/api/v1/matters/{matter.id}/documents/{uuid.uuid4()}",
         headers=auth_headers(partner),

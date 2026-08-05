@@ -3,14 +3,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
+from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
-from typing import Callable
 
 from watchdog.events import FileCreatedEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
 from app.connectors.base import BaseDocumentConnector, DocumentInfo
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +95,7 @@ class FolderWatchConnector(BaseDocumentConnector):
 # Async ingest logic
 # ---------------------------------------------------------------------------
 
+
 async def _ingest_watched_file(file_path: str, watch_root: Path) -> None:
     """Auto-ingest a file dropped into the watch folder.
 
@@ -112,7 +113,8 @@ async def _ingest_watched_file(file_path: str, watch_root: Path) -> None:
     from sqlalchemy import select as sa_select
 
     from app.config import get_settings as _get_settings
-    from app.db.models import Document as DBDocument, DocumentStatus, Matter
+    from app.db.models import Document as DBDocument
+    from app.db.models import DocumentStatus, Matter
     from app.db.session import AsyncSessionLocal
     from app.ingestion.pipeline import IngestionPipeline
 
@@ -163,9 +165,7 @@ async def _ingest_watched_file(file_path: str, watch_root: Path) -> None:
             )
         )
         if existing.scalar_one_or_none() is not None:
-            logger.debug(
-                f"Watch folder: {filename!r} already ingested in matter '{matter.name}'"
-            )
+            logger.debug(f"Watch folder: {filename!r} already ingested in matter '{matter.name}'")
             return
 
         # Read bytes
@@ -175,9 +175,7 @@ async def _ingest_watched_file(file_path: str, watch_root: Path) -> None:
             logger.error(f"Watch folder: could not read {file_path!r}: {exc}")
             return
 
-        logger.info(
-            f"Watch folder: auto-ingesting {filename!r} → matter '{matter.name}'"
-        )
+        logger.info(f"Watch folder: auto-ingesting {filename!r} → matter '{matter.name}'")
 
         # Persist file copy next to regular uploads
         doc_id = str(uuid.uuid4())
@@ -230,8 +228,6 @@ def make_ingest_callback(
     """
 
     def _callback(file_path: str) -> None:
-        asyncio.run_coroutine_threadsafe(
-            _ingest_watched_file(file_path, watch_root), loop
-        )
+        asyncio.run_coroutine_threadsafe(_ingest_watched_file(file_path, watch_root), loop)
 
     return _callback

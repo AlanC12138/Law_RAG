@@ -5,13 +5,22 @@ import uuid
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    Response,
+    UploadFile,
+    status,
+)
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import check_matter_access, get_current_active_user
 from app import services
+from app.api.dependencies import check_matter_access, get_current_active_user
 from app.config import get_settings
 from app.db.models import Document, DocumentStatus, Matter, User
 from app.db.session import get_db
@@ -192,9 +201,7 @@ async def get_document(
     Raises:
         HTTPException: If document not found
     """
-    query = select(Document).where(
-        (Document.id == doc_id) & (Document.matter_id == matter_id)
-    )
+    query = select(Document).where((Document.id == doc_id) & (Document.matter_id == matter_id))
     result = await db.execute(query)
     document = result.scalar_one_or_none()
 
@@ -233,9 +240,7 @@ async def delete_document(
     Raises:
         HTTPException: If document not found
     """
-    query = select(Document).where(
-        (Document.id == doc_id) & (Document.matter_id == matter_id)
-    )
+    query = select(Document).where((Document.id == doc_id) & (Document.matter_id == matter_id))
     result = await db.execute(query)
     document = result.scalar_one_or_none()
 

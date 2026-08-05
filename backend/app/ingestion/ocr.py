@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 class ExtractedDocument:
     """Result of text extraction from a document."""
 
-    pages: list[str]          # Text content per page (index = page number - 1)
+    pages: list[str]  # Text content per page (index = page number - 1)
     page_count: int
-    used_ocr: bool            # True if OCR fallback was used
+    used_ocr: bool  # True if OCR fallback was used
 
 
 def extract_text_from_pdf(file_bytes: bytes) -> ExtractedDocument:
@@ -102,9 +102,7 @@ def extract_text_from_docx(file_bytes: bytes) -> ExtractedDocument:
     # Also extract text from tables
     for table in doc.tables:
         for row in table.rows:
-            row_text = " | ".join(
-                cell.text.strip() for cell in row.cells if cell.text.strip()
-            )
+            row_text = " | ".join(cell.text.strip() for cell in row.cells if cell.text.strip())
             if row_text:
                 paragraphs.append(row_text)
 

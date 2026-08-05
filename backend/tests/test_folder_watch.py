@@ -6,6 +6,7 @@ tests call the async ingest coroutine directly, the same way
 the actual business logic (matter validation, dedup, file-type filtering)
 lives, and where bugs would actually bite.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -58,9 +59,7 @@ def _mock_pipeline():
 
 
 @pytest.mark.asyncio
-async def test_ingest_new_file_creates_document(
-    test_db: AsyncSession, watch_root: Path
-) -> None:
+async def test_ingest_new_file_creates_document(test_db: AsyncSession, watch_root: Path) -> None:
     """Dropping a supported file into {watch_root}/{matter_id}/ creates a
     Document row and hands off to the ingestion pipeline."""
     partner = await make_user(test_db, email="partner-fw1@firm.com")
@@ -93,9 +92,7 @@ async def test_ingest_new_file_creates_document(
 
 
 @pytest.mark.asyncio
-async def test_ingest_skips_unknown_matter(
-    test_db: AsyncSession, watch_root: Path
-) -> None:
+async def test_ingest_skips_unknown_matter(test_db: AsyncSession, watch_root: Path) -> None:
     """A subdirectory name that isn't a real matter ID is ignored — no
     Document row, no pipeline run."""
     fake_matter_dir = watch_root / str(uuid.uuid4())
@@ -116,9 +113,7 @@ async def test_ingest_skips_unknown_matter(
 
 
 @pytest.mark.asyncio
-async def test_ingest_skips_unsupported_file_type(
-    test_db: AsyncSession, watch_root: Path
-) -> None:
+async def test_ingest_skips_unsupported_file_type(test_db: AsyncSession, watch_root: Path) -> None:
     """Files with an extension outside {pdf, docx, doc} are ignored."""
     partner = await make_user(test_db, email="partner-fw2@firm.com")
     matter = await make_matter(test_db, owner=partner)
@@ -192,9 +187,7 @@ async def test_ingest_skips_already_ingested_filename(
 
 
 @pytest.mark.asyncio
-async def test_ingest_skips_hidden_and_temp_files(
-    test_db: AsyncSession, watch_root: Path
-) -> None:
+async def test_ingest_skips_hidden_and_temp_files(test_db: AsyncSession, watch_root: Path) -> None:
     """Hidden files and editor/OS temp files (.tmp/.part/.swp) are never
     ingested, even when dropped in a valid matter subdirectory."""
     partner = await make_user(test_db, email="partner-fw4@firm.com")

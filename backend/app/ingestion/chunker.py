@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import re
 import logging
-from dataclasses import dataclass, field
+import re
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
@@ -11,11 +11,13 @@ logger = logging.getLogger(__name__)
 _SECTION_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"^(ARTICLE\s+[IVXLCDM\d]+[\.\s])", re.IGNORECASE | re.MULTILINE),
     re.compile(r"^(SECTION\s+\d+[\.\d]*[\.\s])", re.IGNORECASE | re.MULTILINE),
-    re.compile(r"^(\d+\.\s+[A-Z][A-Za-z\s]{3,})", re.MULTILINE),   # e.g. "1. Definitions"
-    re.compile(r"^(\d+\.\d+[\.\d]*\s+[A-Z])", re.MULTILINE),        # e.g. "1.1 Term"
+    re.compile(r"^(\d+\.\s+[A-Z][A-Za-z\s]{3,})", re.MULTILINE),  # e.g. "1. Definitions"
+    re.compile(r"^(\d+\.\d+[\.\d]*\s+[A-Z])", re.MULTILINE),  # e.g. "1.1 Term"
     re.compile(r"^(WHEREAS|NOW,\s+THEREFORE|IN WITNESS WHEREOF)", re.MULTILINE),
-    re.compile(r"^(SCHEDULE\s+[A-Z\d]+|EXHIBIT\s+[A-Z\d]+|APPENDIX\s+[A-Z\d]+)",
-               re.IGNORECASE | re.MULTILINE),
+    re.compile(
+        r"^(SCHEDULE\s+[A-Z\d]+|EXHIBIT\s+[A-Z\d]+|APPENDIX\s+[A-Z\d]+)",
+        re.IGNORECASE | re.MULTILINE,
+    ),
 ]
 
 
@@ -24,10 +26,10 @@ class Chunk:
     """A single text chunk ready for embedding and storage."""
 
     text: str
-    chunk_index: int      # Position of this chunk within the document
-    page_number: int      # 1-based page number (approximated for DOCX)
-    section_title: str    # Nearest parent section heading, if found
-    char_start: int       # Character offset in the full document text
+    chunk_index: int  # Position of this chunk within the document
+    page_number: int  # 1-based page number (approximated for DOCX)
+    section_title: str  # Nearest parent section heading, if found
+    char_start: int  # Character offset in the full document text
     char_end: int
 
 
@@ -83,7 +85,7 @@ class LegalChunker:
             for sub_text in sub_chunks:
                 char_start = full_text.find(sub_text, offset)
                 if char_start == -1:
-                    char_start = offset          # fallback
+                    char_start = offset  # fallback
                 char_end = char_start + len(sub_text)
                 page_number = _offset_to_page(char_start, page_offsets)
 
@@ -130,6 +132,7 @@ class LegalChunker:
 # Module-level helpers
 # ---------------------------------------------------------------------------
 
+
 def _combine_pages(pages: list[str]) -> tuple[str, list[int]]:
     """Join pages into a single string and record the character offset of each page.
 
@@ -146,7 +149,7 @@ def _combine_pages(pages: list[str]) -> tuple[str, list[int]]:
     for page_text in pages:
         offsets.append(cursor)
         parts.append(page_text)
-        cursor += len(page_text) + 1   # +1 for the newline separator
+        cursor += len(page_text) + 1  # +1 for the newline separator
 
     return "\n".join(parts), offsets
 
@@ -197,7 +200,7 @@ def _split_into_sections(
     deduplicated: list[tuple[int, str]] = []
     last_pos = -1
     for pos, title in split_points:
-        if pos > last_pos + 10:          # ignore matches within 10 chars of each other
+        if pos > last_pos + 10:  # ignore matches within 10 chars of each other
             deduplicated.append((pos, title))
             last_pos = pos
 

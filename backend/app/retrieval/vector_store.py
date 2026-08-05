@@ -32,10 +32,10 @@ class SearchResult:
     document_id: str
     matter_id: str
     filename: str
-    text: str               # The raw chunk text
+    text: str  # The raw chunk text
     page_number: int
     section_title: str
-    score: float            # Similarity score (0–1, higher = more relevant)
+    score: float  # Similarity score (0–1, higher = more relevant)
 
 
 class QdrantVectorStore:
@@ -166,10 +166,10 @@ class QdrantVectorStore:
             results, next_offset = self.client.scroll(
                 collection_name=COLLECTION_NAME,
                 scroll_filter=matter_filter,
-                limit=256,          # fetch in pages of 256
+                limit=256,  # fetch in pages of 256
                 offset=offset,
                 with_payload=True,
-                with_vectors=False, # payloads only — no need to load vectors
+                with_vectors=False,  # payloads only — no need to load vectors
             )
             for point in results:
                 payload = dict(point.payload)

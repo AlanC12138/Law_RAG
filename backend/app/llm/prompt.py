@@ -57,6 +57,7 @@ Respond with valid JSON only — no explanation, no markdown fences."""
 # Context formatter
 # ---------------------------------------------------------------------------
 
+
 def build_context_block(results: list[RankedResult]) -> str:
     """Format retrieved chunks into a numbered source block for the LLM prompt.
 
@@ -75,16 +76,16 @@ def build_context_block(results: list[RankedResult]) -> str:
     lines: list[str] = ["The following excerpts were retrieved from the firm's documents:\n"]
 
     for i, result in enumerate(results, start=1):
-        section_info = f" | Section: \"{result.section_title}\"" if result.section_title else ""
+        section_info = f' | Section: "{result.section_title}"' if result.section_title else ""
         header = (
             f"[SOURCE {i}] "
-            f"Document: \"{result.filename}\" | "
+            f'Document: "{result.filename}" | '
             f"Page: {result.page_number}"
             f"{section_info}"
         )
         lines.append(header)
         lines.append(result.text)
-        lines.append("")   # blank line between sources
+        lines.append("")  # blank line between sources
 
     return "\n".join(lines)
 

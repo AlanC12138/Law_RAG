@@ -1,13 +1,14 @@
 """Integration tests for the /api/v1/auth endpoints."""
+
 from __future__ import annotations
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.conftest import auth_headers, make_refresh_token, make_user
 from app.core.security import create_access_token
 from app.db.models import UserRole
+from tests.conftest import auth_headers, make_refresh_token, make_user
 
 
 @pytest.mark.asyncio
@@ -45,9 +46,7 @@ async def test_login_unknown_user(async_client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_login_inactive_user(
-    async_client: AsyncClient, test_db: AsyncSession
-) -> None:
+async def test_login_inactive_user(async_client: AsyncClient, test_db: AsyncSession) -> None:
     """Disabled accounts are rejected with 403."""
     inactive = await make_user(
         test_db,
@@ -108,10 +107,9 @@ async def test_logout(async_client: AsyncClient, associate) -> None:
 # Token refresh
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
-async def test_refresh_returns_new_usable_tokens(
-    async_client: AsyncClient, associate
-) -> None:
+async def test_refresh_returns_new_usable_tokens(async_client: AsyncClient, associate) -> None:
     """A valid refresh token yields a new access+refresh pair, and the new
     access token actually works against a protected endpoint."""
     refresh_token = make_refresh_token(associate)
@@ -134,9 +132,7 @@ async def test_refresh_returns_new_usable_tokens(
 
 
 @pytest.mark.asyncio
-async def test_refresh_rejects_access_token(
-    async_client: AsyncClient, associate
-) -> None:
+async def test_refresh_rejects_access_token(async_client: AsyncClient, associate) -> None:
     """An access token must not work as a refresh token."""
     access_token = create_access_token(
         data={
@@ -153,9 +149,7 @@ async def test_refresh_rejects_access_token(
 
 
 @pytest.mark.asyncio
-async def test_refresh_token_rejected_as_access_token(
-    async_client: AsyncClient, associate
-) -> None:
+async def test_refresh_token_rejected_as_access_token(async_client: AsyncClient, associate) -> None:
     """A refresh token must not work as a Bearer access token on a
     protected endpoint — closes the gap where verify_token previously
     ignored the `type` claim entirely."""

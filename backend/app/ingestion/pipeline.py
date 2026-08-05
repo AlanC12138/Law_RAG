@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -117,10 +116,11 @@ class IngestionPipeline:
 
             # ── Step 5: Mark document READY ──────────────────────────────
             await self._update_document(
-                db, document_id,
+                db,
+                document_id,
                 status=DocumentStatus.READY,
                 page_count=extracted.page_count,
-                ingested_at=datetime.now(timezone.utc),
+                ingested_at=datetime.now(UTC),
             )
 
             # ── Steps 6–7: LLM enrichment (non-fatal if they fail) ───────

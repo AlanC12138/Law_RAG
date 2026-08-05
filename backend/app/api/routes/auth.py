@@ -6,23 +6,21 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from jose import JWTError
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from jose import JWTError
-
+from app.api.dependencies import get_current_active_user
+from app.config import get_settings
 from app.core.security import (
     create_access_token,
     create_refresh_token,
-    get_password_hash,
     verify_password,
     verify_token,
 )
 from app.db.models import User
 from app.db.session import get_db
-from app.api.dependencies import get_current_active_user
-from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])

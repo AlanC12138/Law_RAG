@@ -107,9 +107,10 @@ class HybridRetriever:
 # RRF implementation
 # ---------------------------------------------------------------------------
 
+
 def _reciprocal_rank_fusion(
     semantic: list[SearchResult],
-    bm25: list,             # list[BM25Result] — avoid circular import with Any
+    bm25: list,  # list[BM25Result] — avoid circular import with Any
     k: int = _RRF_K,
 ) -> list[SearchResult]:
     """Merge two ranked lists using Reciprocal Rank Fusion.

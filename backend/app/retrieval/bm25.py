@@ -10,27 +10,67 @@ logger = logging.getLogger(__name__)
 
 # Common English stop-words excluded from BM25 tokenisation.
 # Legal documents re-use these so heavily that they add noise to scoring.
-_STOP_WORDS: frozenset[str] = frozenset({
-    "a", "an", "the", "and", "or", "but", "in", "on", "at", "to",
-    "for", "of", "with", "by", "from", "is", "are", "was", "were",
-    "be", "been", "being", "have", "has", "had", "do", "does", "did",
-    "will", "would", "could", "should", "may", "might", "shall",
-    "this", "that", "these", "those", "it", "its", "as", "not",
-})
+_STOP_WORDS: frozenset[str] = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "and",
+        "or",
+        "but",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "with",
+        "by",
+        "from",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "shall",
+        "this",
+        "that",
+        "these",
+        "those",
+        "it",
+        "its",
+        "as",
+        "not",
+    }
+)
 
 
 @dataclass
 class BM25Result:
     """A single BM25 keyword search result."""
 
-    chunk_id: str           # Qdrant point ID (_qdrant_id from payload)
+    chunk_id: str  # Qdrant point ID (_qdrant_id from payload)
     document_id: str
     matter_id: str
     filename: str
     text: str
     page_number: int
     section_title: str
-    score: float            # Raw BM25 score (not normalised)
+    score: float  # Raw BM25 score (not normalised)
 
 
 class BM25Index:
@@ -51,14 +91,14 @@ class BM25Index:
 
     def __init__(self, tokenised_corpus: list[list[str]], chunks: list[dict]) -> None:
         self._bm25 = BM25Okapi(tokenised_corpus)
-        self._chunks = chunks          # parallel list — index i matches corpus[i]
+        self._chunks = chunks  # parallel list — index i matches corpus[i]
 
     # ------------------------------------------------------------------
     # Construction
     # ------------------------------------------------------------------
 
     @classmethod
-    def build(cls, chunks: list[dict]) -> "BM25Index":
+    def build(cls, chunks: list[dict]) -> BM25Index:
         """Build an index from a list of chunk payloads.
 
         Args:
@@ -68,9 +108,7 @@ class BM25Index:
         Returns:
             Ready-to-query BM25Index.
         """
-        tokenised: list[list[str]] = [
-            _tokenise(chunk.get("text", "")) for chunk in chunks
-        ]
+        tokenised: list[list[str]] = [_tokenise(chunk.get("text", "")) for chunk in chunks]
         logger.debug(f"Built BM25 index over {len(chunks)} chunks")
         return cls(tokenised, chunks)
 
@@ -96,11 +134,7 @@ class BM25Index:
         scores: list[float] = self._bm25.get_scores(query_tokens).tolist()
 
         # Pair each chunk with its score, keep only positive matches
-        scored = [
-            (score, chunk)
-            for score, chunk in zip(scores, self._chunks)
-            if score > 0
-        ]
+        scored = [(score, chunk) for score, chunk in zip(scores, self._chunks) if score > 0]
         scored.sort(key=lambda x: x[0], reverse=True)
         top = scored[:top_k]
 
@@ -122,6 +156,7 @@ class BM25Index:
 # ---------------------------------------------------------------------------
 # Tokenisation helper
 # ---------------------------------------------------------------------------
+
 
 def _tokenise(text: str) -> list[str]:
     """Lowercase, strip punctuation, and remove stop-words.

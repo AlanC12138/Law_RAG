@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from openai import AsyncOpenAI
 
@@ -55,7 +55,7 @@ class OpenAIProvider(BaseLLMProvider):
         from app.llm.prompt import build_user_message
 
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-        for turn in (history or []):
+        for turn in history or []:
             messages.append({"role": turn["role"], "content": turn["content"]})
         messages.append({"role": "user", "content": build_user_message(prompt, context)})
 
@@ -88,7 +88,7 @@ class OpenAIProvider(BaseLLMProvider):
         from app.llm.prompt import build_user_message
 
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-        for turn in (history or []):
+        for turn in history or []:
             messages.append({"role": turn["role"], "content": turn["content"]})
         messages.append({"role": "user", "content": build_user_message(prompt, context)})
 
