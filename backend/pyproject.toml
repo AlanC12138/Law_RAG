@@ -4,7 +4,6 @@ version = "0.2.0"
 description = "Legal document RAG system backend"
 authors = ["Law RAG Team"]
 license = "MIT"
-readme = "README.md"
 packages = [{include = "app"}]
 
 [tool.poetry.dependencies]

@@ -32,6 +32,9 @@ _pipeline = IngestionPipeline()
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/matters/{matter_id}/documents", tags=["documents"])
 
+# Size of each read when streaming an upload in for the size check
+_UPLOAD_CHUNK_BYTES = 1024 * 1024
+
 
 class DocumentResponse(BaseModel):
     """Document response model."""
@@ -75,7 +78,8 @@ async def upload_document(
         Created Document record (status will be PENDING → PROCESSING → READY).
 
     Raises:
-        HTTPException: 404 if matter not found, 400 for unsupported file types.
+        HTTPException: 404 if matter not found, 400 for unsupported file
+            types, 413 if the file exceeds MAX_UPLOAD_SIZE_MB.
     """
     # Validate file type
     allowed_types = {"pdf", "docx", "doc"}
@@ -92,8 +96,27 @@ async def upload_document(
     if matter is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Matter not found")
 
-    # Read file bytes before the request context closes
-    file_bytes = await file.read()
+    # Read file bytes before the request context closes.
+    # Read in chunks and bail out as soon as the size limit is exceeded, so an
+    # oversized upload is never fully buffered in memory or written to disk.
+    max_bytes = settings.max_upload_size_mb * 1024 * 1024
+    chunks: list[bytes] = []
+    total_bytes = 0
+    while chunk := await file.read(_UPLOAD_CHUNK_BYTES):
+        total_bytes += len(chunk)
+        if total_bytes > max_bytes:
+            logger.warning(
+                f"Rejected oversized upload {file.filename!r} "
+                f"(>{settings.max_upload_size_mb} MB) from {current_user.email}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=(
+                    f"File exceeds the maximum upload size of {settings.max_upload_size_mb} MB."
+                ),
+            )
+        chunks.append(chunk)
+    file_bytes = b"".join(chunks)
 
     # Persist file to disk
     doc_id = str(uuid.uuid4())

@@ -100,6 +100,50 @@ async def test_upload_invalid_type(
 
 
 @pytest.mark.asyncio
+async def test_upload_rejects_oversized_file(
+    async_client: AsyncClient, partner, matter, tmp_path, monkeypatch
+) -> None:
+    """Files larger than MAX_UPLOAD_SIZE_MB are rejected with 413 and nothing
+    is persisted to disk."""
+    monkeypatch.setattr("app.api.routes.documents.settings.data_dir", str(tmp_path))
+    monkeypatch.setattr("app.api.routes.documents.settings.max_upload_size_mb", 1)
+
+    oversized = b"%PDF-1.4" + b"x" * (2 * 1024 * 1024)  # 2 MB against a 1 MB limit
+    with patch("app.api.routes.documents._pipeline.run", new_callable=AsyncMock):
+        response = await async_client.post(
+            f"/api/v1/matters/{matter.id}/documents",
+            headers=auth_headers(partner),
+            files=[("file", ("huge.pdf", io.BytesIO(oversized), "application/pdf"))],
+        )
+
+    assert response.status_code == 413
+    assert "maximum upload size" in response.json()["detail"].lower()
+    # The rejected upload must not have been written to disk
+    assert not list(tmp_path.rglob("*.pdf"))
+
+
+@pytest.mark.asyncio
+async def test_upload_accepts_file_under_limit(
+    async_client: AsyncClient, partner, matter, tmp_path, monkeypatch
+) -> None:
+    """A file under the limit still uploads normally — the new size check must
+    not reject valid uploads."""
+    monkeypatch.setattr("app.api.routes.documents.settings.data_dir", str(tmp_path))
+    monkeypatch.setattr("app.api.routes.documents.settings.max_upload_size_mb", 1)
+
+    content = b"%PDF-1.4" + b"x" * 1024  # ~1 KB
+    with patch("app.api.routes.documents._pipeline.run", new_callable=AsyncMock):
+        response = await async_client.post(
+            f"/api/v1/matters/{matter.id}/documents",
+            headers=auth_headers(partner),
+            files=[("file", ("small.pdf", io.BytesIO(content), "application/pdf"))],
+        )
+
+    assert response.status_code == 201
+    assert response.json()["filename"] == "small.pdf"
+
+
+@pytest.mark.asyncio
 async def test_upload_denied_without_matter_access(
     async_client: AsyncClient, associate, matter, tmp_path, monkeypatch
 ) -> None:
