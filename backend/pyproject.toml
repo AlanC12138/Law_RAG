@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "law-rag-backend"
-version = "0.2.0"
+version = "0.3.0"
 description = "Legal document RAG system backend"
 authors = ["Law RAG Team"]
 license = "MIT"

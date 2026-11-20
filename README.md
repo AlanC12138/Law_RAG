@@ -1,7 +1,7 @@
 # Law RAG — AI-Powered Legal Document Assistant
 
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat&logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?style=flat&logo=fastapi&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688?style=flat&logo=fastapi&logoColor=white)
 ![React](https://img.shields.io/badge/React-TypeScript-61DAFB?style=flat&logo=react&logoColor=black)
 ![Qdrant](https://img.shields.io/badge/Qdrant-Vector%20DB-DC244C?style=flat)
 ![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-412991?style=flat&logo=openai&logoColor=white)
@@ -15,6 +15,29 @@ Law RAG lets your legal team ask plain-English questions about case files and ge
 - Uploaded documents are automatically **summarised** and their **key clauses** (governing law, termination, parties, etc.) extracted and displayed
 - Role-based access control and full audit logging built in
 - Partners can manage team members and matters through the admin panel
+- Citations jump straight to the source document, and passages can be copied in one click
+- A matter's full Q&A history exports to a formatted `.docx`
+- Drop a file into `data/watch/<matter_id>/` and it is ingested automatically — no manual upload
+- Sessions refresh silently in the background instead of logging you out mid-task
+
+---
+
+## Status
+
+**Verified on 2026-11-20** — `master` at `185d9c87`.
+
+| Check | Result |
+|---|---|
+| Backend tests (`pytest`, SQLite in-memory) | 75 / 75 passing |
+| `ruff check` · `black --check` | Clean, 55 files |
+| ESLint (`--max-warnings 0`) | Clean |
+| `tsc && vite build` | Clean — 263.34 kB (82.41 kB gzipped) |
+| Alembic migrations against PostgreSQL 16 | `001` → `002` → `003`, all model tables created |
+| `docker compose config` | Valid |
+
+The first five ran locally and in GitHub Actions; the migration check is the CI
+job `Migrate (Alembic against Postgres)`. Everything in this README and in
+[TECH_STACK.md](TECH_STACK.md) was checked against the source tree on that date.
 
 ---
 
@@ -82,7 +105,9 @@ After the first install, Docker starts automatically when your machine boots. Yo
 | Start the app       | `make start`      |
 | Stop the app        | `make stop`       |
 | Restart            | `make restart`    |
+| Rebuild after code changes | `make build` |
 | View live logs      | `make logs`       |
+| Backend logs only   | `make logs-backend` |
 | Check status        | `make status`     |
 | Wipe data & reset  | `make reset`      |
 
@@ -109,7 +134,18 @@ You get a precise answer with
 
 All settings live in the `.env` file created during setup. See `.env.example` for available options.
 
-The only two values you must set are `OPENAI_API_KEY` and `SECRET_KEY` (generated automatically by the setup script).
+If you ran `setup.bat` / `setup.sh`, everything required is already filled in.
+
+Setting up `.env` by hand instead, three values have no usable default:
+
+| Variable | Why |
+|---|---|
+| `OPENAI_API_KEY` | Not needed if you set `LLM_PROVIDER=ollama` |
+| `SECRET_KEY` | Signs login tokens — generate with `openssl rand -base64 32` |
+| `POSTGRES_PASSWORD` | Blank in the template; the setup scripts generate a random one |
+
+Uploads are capped at `MAX_UPLOAD_SIZE_MB` (default 50). Anything larger is
+rejected with HTTP 413 rather than being written to disk.
 
 ---
 
@@ -119,12 +155,17 @@ The only two values you must set are `OPENAI_API_KEY` and `SECRET_KEY` (generate
 Law_RAG/
 ├── setup.bat          ← Windows one-click setup
 ├── setup.sh           ← Mac/Linux one-click setup
-├── docker-compose.yml ← Defines all three services
+├── docker-compose.yml ← Defines all four services (postgres, qdrant, backend, frontend)
 ├── .env               ← Your private config (gitignored)
 ├── .env.example       ← Config template
 ├── Makefile           ← Convenience commands (Mac/Linux)
+├── CHANGELOG.md       ← Release history
+├── TECH_STACK.md      ← Stack choices and rationale
+├── INSTRUCTIONS.md    ← Original planning decisions and phase scope
 ├── backend/           ← FastAPI + Python (AI, search, auth)
-└── frontend/          ← React + TypeScript (UI)
+│   └── alembic/       ← Database migrations (run automatically on startup)
+├── frontend/          ← React + TypeScript (UI)
+└── data/watch/        ← Drop files in <matter_id>/ to auto-ingest
 ```
 
 ---
@@ -191,11 +232,25 @@ cp .env.example .env   # fill in OPENAI_API_KEY and SECRET_KEY
 # Start all services
 docker compose up -d
 
-# Run the test suite
-docker compose exec backend pytest -v
-
 # View auto-generated API docs
 open http://localhost:8000/docs
 ```
+
+### Running the tests
+
+The backend image is built with `poetry install --without dev`, so `pytest` is
+**not** present inside the container. Run the suite on the host instead, with the
+same environment CI uses:
+
+```bash
+cd backend
+poetry install --with dev --no-root
+
+OPENAI_API_KEY=sk-test-placeholder SECRET_KEY="test-secret-key-for-ci-at-least-32-chars!!" DATABASE_URL="sqlite+aiosqlite:///:memory:" QDRANT_PATH=/tmp/qdrant_test APP_ENV=test poetry run pytest --asyncio-mode=auto -v
+```
+
+75 tests. Qdrant and the ML stack are stubbed in `backend/conftest.py`, so no
+vector database, model download or API key is needed. Lint with
+`poetry run ruff check .` and `poetry run black --check .`.
 
 See [INSTRUCTIONS.md](INSTRUCTIONS.md) for architecture decisions, branching strategy, and contribution guidelines.

@@ -2,6 +2,10 @@
 
 > All technology choices for the project. Each entry includes the rationale and any key constraints or alternatives considered.
 
+> **Verified on 2026-11-20** against the code on `master` (`185d9c87`). Every row
+> below was checked against `backend/pyproject.toml`, `backend/poetry.lock`,
+> `frontend/package.json`, `docker-compose.yml` and the source tree.
+
 ---
 
 ## Backend
@@ -10,7 +14,6 @@
 |---|---|---|---|
 | Language | Python | 3.11+ | Best RAG/ML ecosystem |
 | Web framework | FastAPI | 0.110+ | Async, auto-generated OpenAPI docs, excellent for streaming |
-| RAG orchestration | LlamaIndex | 0.10+ | Better than LangChain for document-heavy RAG; strong PDF/DOCX support |
 | ASGI server | Uvicorn | latest | Development; swap to Gunicorn + Uvicorn workers in production |
 | Dependency management | Poetry | latest | Lock file, virtual env, clean packaging |
 
@@ -21,24 +24,24 @@
 | LLM (MVP) | OpenAI GPT-4o | Configurable via `.env`; provider abstracted behind interface |
 | Embeddings | OpenAI `text-embedding-3-small` | Good quality/cost ratio; 1536 dimensions |
 | Reranking | `cross-encoder/ms-marco-MiniLM-L-6-v2` | Runs locally via `sentence-transformers`; no API cost |
-| LLM interface | LlamaIndex `OpenAI` wrapper | Swap-friendly; same interface works for local models later |
-| Future LLM (Phase 2) | Ollama | For air-gapped/local deployments |
+| LLM interface | `BaseLLMProvider` over the `openai` AsyncOpenAI client | Hand-rolled rather than via a framework; Ollama implements the same interface |
+| Alternative LLM | Ollama (`llama3.2`, `mistral`) | Implemented — set `LLM_PROVIDER=ollama`; for air-gapped/local deployments |
 
 ## Document Processing
 
 | Concern | Choice | Notes |
 |---|---|---|
-| PDF parsing | `pdfplumber` + `pymupdf` | `pdfplumber` for text/tables; `pymupdf` for speed on large files |
+| PDF parsing | `pdfplumber` | Text and tables; `pymupdf` was dropped as unused |
 | OCR (scanned PDFs) | `pytesseract` + Tesseract | Open source; runs locally |
 | DOCX parsing | `python-docx` | Standard; preserves structure |
-| Chunking | Custom + LlamaIndex `SentenceSplitter` | Custom logic to respect legal section/clause boundaries |
+| Chunking | Custom (`app/ingestion/chunker.py`) | Custom logic to respect legal section/clause boundaries |
 | BM25 keyword search | `rank_bm25` | Lightweight, no server needed |
 
 ## Data Storage
 
 | Concern | Choice | Notes |
 |---|---|---|
-| Vector database | Qdrant (embedded mode) | Runs in-process, no separate server; strong metadata filtering; easy to move to server mode later |
+| Vector database | Qdrant `v1.17.1` (server mode) | Its own container in docker-compose on port 6333; image pinned so it cannot drift ahead of the client |
 | Relational database | PostgreSQL (default) | Started via docker-compose; schema managed by Alembic migrations. SQLite remains available as a zero-config fallback for running the API without Docker |
 | Migrations | Alembic | Schema versioning from day one |
 | ORM | SQLAlchemy 2.0 | Async-compatible |
@@ -58,10 +61,10 @@
 | Framework | React 18 | Component model, large ecosystem |
 | Build tool | Vite | Fast HMR, simple config |
 | Language | TypeScript | Type safety, better DX |
-| HTTP client | Axios + React Query | React Query for caching and loading states |
+| HTTP client | Axios | Includes a 401 interceptor that silently refreshes the access token once before giving up. React Query was removed as unused |
 | Styling | Tailwind CSS | Utility-first, fast to build with |
-| Component library | shadcn/ui | Accessible, unstyled base components; works well with Tailwind |
-| Streaming | `fetch` + `EventSource` | Native browser streaming for LLM response |
+| Component library | None | Components are hand-written against Tailwind utilities |
+| Streaming | `fetch` + `ReadableStream` reader | Backend sends `text/event-stream`; `EventSource` is unusable here because it cannot set an auth header on a POST |
 
 ## Dev Tooling
 
@@ -70,14 +73,13 @@
 | Version control | Git | GitHub (or self-hosted) |
 | Versioning | Semantic Versioning (`MAJOR.MINOR.PATCH`) | |
 | Changelog | `CHANGELOG.md` (Keep a Changelog format) | |
-| CI | GitHub Actions | Lint + test on every push to `dev` and `main` |
+| CI | GitHub Actions | On push to `master` and `dev`: ruff, black, pytest, Alembic against a real Postgres, ESLint, and a TypeScript + Vite build |
 | Backend linting | `ruff` | Fast, replaces flake8 + isort + pyupgrade |
 | Backend formatting | `black` | |
-| Type checking | `mypy` | Strict mode encouraged |
-| Frontend linting | ESLint + Prettier | |
-| Testing — backend | `pytest` + `pytest-asyncio` | |
-| Testing — frontend | Vitest | Same config as Vite |
-| Local dev orchestration | `docker-compose` | Spins up backend + frontend + Qdrant together |
+| Frontend linting | ESLint | `--max-warnings 0`; Prettier is not installed |
+| Testing — backend | `pytest` + `pytest-asyncio` | 75 tests; heavy ML deps stubbed in `backend/conftest.py` so no model download or API key is needed |
+| Testing — frontend | None yet | No frontend test framework is installed |
+| Local dev orchestration | `docker compose` | Spins up Postgres, Qdrant, backend and frontend together |
 | Environment config | `python-dotenv` / `.env` files | `.env.example` committed; `.env` gitignored |
 
 ## Future / Phase 2
@@ -86,7 +88,6 @@
 |---|---|---|
 | Desktop packaging | Electron (frontend) + PyInstaller (backend) | Wraps local web server in a desktop app |
 | Auto-update | Electron auto-updater | Built into Electron |
-| Local LLM | Ollama | Drop-in replacement for OpenAI API |
 
 ---
 

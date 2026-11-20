@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-20
+
+Merged to `master` in `185d9c87`. Verified on 2026-11-20: 75/75 backend tests,
+ruff, black, ESLint and `tsc && vite build` all clean; Alembic migrations applied
+against PostgreSQL 16.
+
 ### Added
 - **Citation jump-to-source** — chat source cards have copy-passage and jump-to-document buttons; jumping switches to the Documents tab and highlights the matching document card
 - **Export query history** — download a matter's full Q&A history as a formatted `.docx` from the History tab

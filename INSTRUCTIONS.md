@@ -1,6 +1,11 @@
 # Law RAG — Project Instructions & Agreed Decisions
 
-> This document captures all architectural decisions, product scope, and guiding principles agreed upon during initial planning. It serves as the single source of truth for the project direction. Update it as decisions evolve.
+> This document captures all architectural decisions, product scope, and guiding principles agreed upon during initial planning. It serves as the single source of truth for the project *direction*. Update it as decisions evolve.
+
+> **Note:** this is a planning document, so the phase scope below describes
+> intent rather than what is built today. For what actually ships right now, see
+> the Status table in [README.md](README.md) and [CHANGELOG.md](CHANGELOG.md).
+> Verified on 2026-11-20.
 
 ---
 
@@ -96,7 +101,7 @@ The application ships with an auto-update mechanism:
 ## 7. Version Control
 
 Git is used from day one. The repository is structured for long-term maintainability:
-- Branching strategy: `main` (stable) → `dev` → feature branches
+- Branching strategy: `master` (stable) → `dev` → feature branches
 - Commits are atomic and descriptive
 - All breaking changes documented in `CHANGELOG.md`
 - Semantic versioning (`MAJOR.MINOR.PATCH`)
