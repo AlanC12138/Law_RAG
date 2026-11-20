@@ -41,6 +41,9 @@ else
     ADMIN_PASSWORD="${ADMIN_PASSWORD:-changeme}"
 
     SECRET_KEY=$(openssl rand -base64 32)
+    # hex, not base64 — this password is embedded directly in the Postgres
+    # connection URL, and base64's `/`, `+`, `=` would corrupt URL parsing
+    POSTGRES_PASSWORD=$(openssl rand -hex 24)
 
     cat > .env <<EOF
 # Law RAG — Configuration
@@ -50,6 +53,7 @@ OPENAI_API_KEY=${OPENAI_KEY}
 SECRET_KEY=${SECRET_KEY}
 ADMIN_EMAIL=${ADMIN_EMAIL}
 ADMIN_PASSWORD=${ADMIN_PASSWORD}
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 EOF
 
     echo ""

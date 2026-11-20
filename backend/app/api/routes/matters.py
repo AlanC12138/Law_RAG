@@ -65,11 +65,7 @@ async def list_matters(
     Returns:
         List of matters user has access to
     """
-    query = (
-        select(Matter)
-        .join(MatterMembership)
-        .where(MatterMembership.user_id == current_user.id)
-    )
+    query = select(Matter).join(MatterMembership).where(MatterMembership.user_id == current_user.id)
     result = await db.execute(query)
     matters = result.scalars().all()
 
@@ -161,9 +157,7 @@ async def get_matter(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Matter not found")
 
     members_query = (
-        select(User)
-        .join(MatterMembership)
-        .where(MatterMembership.matter_id == matter_id)
+        select(User).join(MatterMembership).where(MatterMembership.matter_id == matter_id)
     )
     members_result = await db.execute(members_query)
     members = members_result.scalars().all()

@@ -1,22 +1,21 @@
 """Integration tests for the /api/v1/users endpoints."""
+
 from __future__ import annotations
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.conftest import auth_headers, make_user
 from app.db.models import UserRole
-
+from tests.conftest import auth_headers, make_user
 
 # ---------------------------------------------------------------------------
 # GET /users  (partner-only list)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
-async def test_list_users_as_partner(
-    async_client: AsyncClient, partner, associate
-) -> None:
+async def test_list_users_as_partner(async_client: AsyncClient, partner, associate) -> None:
     """Partners can list all users."""
     response = await async_client.get(
         "/api/v1/users",
@@ -29,9 +28,7 @@ async def test_list_users_as_partner(
 
 
 @pytest.mark.asyncio
-async def test_list_users_as_associate(
-    async_client: AsyncClient, associate
-) -> None:
+async def test_list_users_as_associate(async_client: AsyncClient, associate) -> None:
     """Associates are forbidden from listing users."""
     response = await async_client.get(
         "/api/v1/users",
@@ -44,10 +41,9 @@ async def test_list_users_as_associate(
 # POST /users  (partner-only create)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
-async def test_create_user_as_partner(
-    async_client: AsyncClient, partner
-) -> None:
+async def test_create_user_as_partner(async_client: AsyncClient, partner) -> None:
     """Partners can create new user accounts."""
     response = await async_client.post(
         "/api/v1/users",
@@ -67,9 +63,7 @@ async def test_create_user_as_partner(
 
 
 @pytest.mark.asyncio
-async def test_create_user_duplicate_email(
-    async_client: AsyncClient, partner, associate
-) -> None:
+async def test_create_user_duplicate_email(async_client: AsyncClient, partner, associate) -> None:
     """Duplicate e-mail returns 409."""
     response = await async_client.post(
         "/api/v1/users",
@@ -84,9 +78,7 @@ async def test_create_user_duplicate_email(
 
 
 @pytest.mark.asyncio
-async def test_create_user_as_associate(
-    async_client: AsyncClient, associate
-) -> None:
+async def test_create_user_as_associate(async_client: AsyncClient, associate) -> None:
     """Associates cannot create users."""
     response = await async_client.post(
         "/api/v1/users",
@@ -104,10 +96,9 @@ async def test_create_user_as_associate(
 # GET /users/me
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
-async def test_get_me_via_users_route(
-    async_client: AsyncClient, associate
-) -> None:
+async def test_get_me_via_users_route(async_client: AsyncClient, associate) -> None:
     """Any authenticated user can fetch their own profile via /users/me."""
     response = await async_client.get(
         "/api/v1/users/me",
@@ -121,10 +112,9 @@ async def test_get_me_via_users_route(
 # PATCH /users/{id}
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
-async def test_update_user_full_name(
-    async_client: AsyncClient, partner, associate
-) -> None:
+async def test_update_user_full_name(async_client: AsyncClient, partner, associate) -> None:
     """Partner can rename another user."""
     response = await async_client.patch(
         f"/api/v1/users/{associate.id}",
@@ -150,9 +140,7 @@ async def test_update_user_promote_to_partner(
 
 
 @pytest.mark.asyncio
-async def test_update_user_cannot_demote_last_partner(
-    async_client: AsyncClient, partner
-) -> None:
+async def test_update_user_cannot_demote_last_partner(async_client: AsyncClient, partner) -> None:
     """Demoting the last active partner is rejected with 400."""
     response = await async_client.patch(
         f"/api/v1/users/{partner.id}",
@@ -163,9 +151,7 @@ async def test_update_user_cannot_demote_last_partner(
 
 
 @pytest.mark.asyncio
-async def test_update_user_not_found(
-    async_client: AsyncClient, partner
-) -> None:
+async def test_update_user_not_found(async_client: AsyncClient, partner) -> None:
     """Patching a non-existent user returns 404."""
     response = await async_client.patch(
         "/api/v1/users/00000000-0000-0000-0000-000000000000",
@@ -179,10 +165,9 @@ async def test_update_user_not_found(
 # DELETE /users/{id}/deactivate
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
-async def test_deactivate_user(
-    async_client: AsyncClient, partner, associate
-) -> None:
+async def test_deactivate_user(async_client: AsyncClient, partner, associate) -> None:
     """Partner can deactivate another user."""
     response = await async_client.delete(
         f"/api/v1/users/{associate.id}/deactivate",
@@ -193,9 +178,7 @@ async def test_deactivate_user(
 
 
 @pytest.mark.asyncio
-async def test_cannot_deactivate_self(
-    async_client: AsyncClient, partner
-) -> None:
+async def test_cannot_deactivate_self(async_client: AsyncClient, partner) -> None:
     """A partner cannot deactivate their own account."""
     response = await async_client.delete(
         f"/api/v1/users/{partner.id}/deactivate",

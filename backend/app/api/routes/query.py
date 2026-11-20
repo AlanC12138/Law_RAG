@@ -3,7 +3,10 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from typing import Annotated, AsyncIterator
+from collections.abc import AsyncIterator
+from datetime import UTC
+from io import BytesIO
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
@@ -28,10 +31,11 @@ router = APIRouter(prefix="/matters/{matter_id}/query", tags=["query"])
 # Request / response models
 # ---------------------------------------------------------------------------
 
+
 class ConversationTurn(BaseModel):
     """A single prior turn in the conversation."""
 
-    role: str    # "user" or "assistant"
+    role: str  # "user" or "assistant"
     content: str
 
 
@@ -51,7 +55,7 @@ class SourceReference(BaseModel):
     filename: str
     page: int
     section_title: str
-    passage: str            # The exact chunk text shown as evidence
+    passage: str  # The exact chunk text shown as evidence
 
 
 class QueryResponse(BaseModel):
@@ -61,12 +65,13 @@ class QueryResponse(BaseModel):
 
     answer: str
     sources: list[SourceReference] = []
-    query_log_id: str       # Audit trail — links back to QueryLog row
+    query_log_id: str  # Audit trail — links back to QueryLog row
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _results_to_sources(results: list[RankedResult]) -> list[SourceReference]:
     """Convert reranked results into SourceReference objects for the response."""
@@ -112,6 +117,7 @@ async def _log_query(
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+
 
 @router.post("", response_model=QueryResponse)
 async def query_matter(
@@ -193,9 +199,7 @@ async def query_matter(
 
     # --- Non-streaming path ---
     answer = await llm.complete(prompt=query_req.question, context=context, history=history)
-    log_id = await _log_query(
-        db, current_user.id, matter_id, query_req.question, answer, results
-    )
+    log_id = await _log_query(db, current_user.id, matter_id, query_req.question, answer, results)
 
     return QueryResponse(answer=answer, sources=sources, query_log_id=log_id)
 
@@ -230,10 +234,12 @@ async def _stream_sse(
             yield f"data: {payload}\n\n"
 
         # Send sources as a single event at the end
-        sources_payload = json.dumps({
-            "type": "sources",
-            "content": [s.model_dump() for s in sources],
-        })
+        sources_payload = json.dumps(
+            {
+                "type": "sources",
+                "content": [s.model_dump() for s in sources],
+            }
+        )
         yield f"data: {sources_payload}\n\n"
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
@@ -250,8 +256,89 @@ async def _stream_sse(
 
 
 # ---------------------------------------------------------------------------
-# Audit log endpoint
+# Audit log endpoints
 # ---------------------------------------------------------------------------
+
+
+@router.get("/logs/export")
+async def export_query_logs(
+    matter_id: str,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    _: Annotated[str, Depends(check_matter_access)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> StreamingResponse:
+    """Export the query history for a matter as a Word (.docx) document.
+
+    Applies the same access-control rules as the logs endpoint: partners
+    receive all queries, associates/paralegals receive only their own.
+
+    Args:
+        matter_id:    The matter whose history to export.
+        current_user: Authenticated user.
+        _:            Matter access gate.
+        db:           Async database session.
+
+    Returns:
+        A streaming .docx file download.
+    """
+    from app.db.models import UserRole as DBUserRole
+
+    matter_result = await db.execute(select(Matter).where(Matter.id == matter_id))
+    matter = matter_result.scalar_one_or_none()
+    if matter is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Matter not found")
+
+    query = select(QueryLog).where(QueryLog.matter_id == matter_id)
+    if current_user.role != DBUserRole.PARTNER:
+        query = query.where(QueryLog.user_id == current_user.id)
+    query = query.order_by(QueryLog.created_at.asc())  # chronological for reading
+    result = await db.execute(query)
+    logs = result.scalars().all()
+
+    buf = _build_export_docx(matter, list(logs))
+    safe_name = "".join(c if c.isalnum() or c in "- " else "_" for c in matter.name)[:50].strip()
+    filename = f"{safe_name}_query_history.docx"
+
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def _build_export_docx(matter, logs: list) -> BytesIO:
+    """Build a Word document from a matter's query history.
+
+    Imported lazily so the heavy python-docx library is only loaded when
+    the export endpoint is actually called, not on every app startup.
+    """
+    from datetime import datetime
+
+    from docx import Document as DocxDocument  # lazy import
+
+    doc = DocxDocument()
+    doc.add_heading(f"Query History — {matter.name}", 0)
+    now_str = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
+    doc.add_paragraph(
+        f"Client: {matter.client_name}  |  Exported: {now_str}  |  "
+        f"{len(logs)} quer{'y' if len(logs) == 1 else 'ies'}"
+    )
+
+    if not logs:
+        doc.add_paragraph("No queries recorded for this matter yet.")
+    else:
+        for i, log in enumerate(logs, 1):
+            doc.add_heading(f"Q{i}. {log.query_text}", level=2)
+            doc.add_paragraph(log.answer_text)
+            ts = log.created_at.strftime("%Y-%m-%d %H:%M")
+            meta = doc.add_paragraph()
+            meta.add_run(f"Asked: {ts} UTC").italic = True
+
+    buf = BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    return buf
+
 
 @router.get("/logs", response_model=list[dict])
 async def get_query_logs(

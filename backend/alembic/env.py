@@ -9,7 +9,13 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
 from app.config import get_settings
+from app.db import models  # noqa: F401 — registers all tables on Base.metadata
 from app.db.base import Base
+
+# so `alembic revision --autogenerate` diffs against the full schema, not an
+# empty one. Existing migrations are hand-written and don't depend on this,
+# but a future autogenerate run without it could emit DROP TABLE for
+# everything.
 
 config = context.config
 if config.config_file_name is not None:

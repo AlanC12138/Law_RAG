@@ -6,6 +6,15 @@ interface HistoryPanelProps {
   matter: Matter
 }
 
+function triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 function formatDate(iso: string) {
   const d = new Date(iso)
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) +
@@ -17,6 +26,20 @@ export default function HistoryPanel({ matter }: HistoryPanelProps) {
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const blob = await queryApi.exportLogs(matter.id)
+      const safe = matter.name.replace(/[^a-z0-9]/gi, '_').slice(0, 50)
+      triggerDownload(blob, `${safe}_query_history.docx`)
+    } catch {
+      setError('Export failed — please try again')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   useEffect(() => {
     setLoading(true)
@@ -66,9 +89,24 @@ export default function HistoryPanel({ matter }: HistoryPanelProps) {
 
   return (
     <div className="flex flex-col h-full overflow-y-auto px-6 py-6 space-y-3">
-      <p className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">
-        {logs.length} past quer{logs.length === 1 ? 'y' : 'ies'} — most recent first
-      </p>
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">
+          {logs.length} past quer{logs.length === 1 ? 'y' : 'ies'} — most recent first
+        </p>
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          title="Export as Word document"
+          className="flex items-center gap-1.5 text-xs text-blue-500 hover:text-blue-700 border border-blue-200 hover:border-blue-400 hover:bg-blue-50 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+            />
+          </svg>
+          {exporting ? 'Exporting…' : 'Export'}
+        </button>
+      </div>
 
       {logs.map((log) => (
         <div

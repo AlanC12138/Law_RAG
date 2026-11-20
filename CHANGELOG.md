@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Citation jump-to-source** — chat source cards have copy-passage and jump-to-document buttons; jumping switches to the Documents tab and highlights the matching document card
+- **Export query history** — download a matter's full Q&A history as a formatted `.docx` from the History tab
+- **Folder-watch auto-ingest** — drop a PDF/DOCX into `data/watch/{matter_id}/` and it's automatically ingested, no manual upload needed
+- **Matter ID display** — the admin panel now shows each matter's UUID (with a copy button), needed for folder-watch and direct API use
+- **Silent token refresh** — a new `POST /auth/refresh` endpoint and a frontend interceptor retry a single 401 via refresh before forcing logout, so a session no longer drops mid-use when the access token expires
+- **PostgreSQL as the default database** — `docker compose up` now starts a Postgres 16 service; schema is managed by Alembic migrations that run automatically on backend startup. SQLite remains available as a zero-dependency fallback for running the API without Docker
+
+### Fixed
+- **Backend CI had never run.** `backend-ci.yml` was invalid YAML (`DATABASE_URL: sqlite+aiosqlite:///:memory:` — a plain YAML scalar cannot end in `:`), so GitHub could not parse the file or schedule any job from it. Also: both workflows triggered on a `main` branch that does not exist in this repo (it uses `master`); the dependency cache key hashed a `poetry.lock` that was never committed, making the key constant and freezing CI on a stale venv; and `poetry install --with dev` built the root package and failed on a `readme` pointing at a non-existent file
+- **Frontend CI build had failed on every run since the lock file was committed** — `package-lock.json` was generated in the `node:18-alpine` (musl) dev container, so it resolved only `@rollup/rollup-linux-x64-musl`; CI runs on glibc and needs the `-gnu` variant. Regenerated on glibc, where npm records all 25 rollup and 23 esbuild platform binaries, making the lock valid everywhere
+- `app/services.py` had its module docstring below `from __future__ import annotations`, so Python treated it as a bare expression rather than a docstring (`services.__doc__` was `None`)
+- Removed a dangling `readme = "README.md"` from `backend/pyproject.toml` pointing at a file that does not exist, which broke `poetry build`
+- `verify_token()` now checks the JWT `type` claim — closes a gap where a refresh token could previously be used directly as an access token
+- `backend/conftest.py` stubbed `python-docx` with a fake class that didn't support the methods the new export endpoint needs; removed the stub since python-docx is lightweight enough to run for real in tests
+
+- **Upload size limit** — documents larger than `MAX_UPLOAD_SIZE_MB` (default 50 MB) are rejected with HTTP 413. The upload is read in chunks and aborted as soon as the limit is exceeded, so an oversized file is never fully buffered in memory or written to disk
+
+### Changed
+- Removed the unused `@tanstack/react-query` dependency and its `QueryClientProvider` wiring — it was installed and mounted but never used anywhere; the app hand-rolls its data fetching. Drops the production bundle from 292 kB to 263 kB (90.9 kB → 82.4 kB gzipped)
+- Frontend dev image moved from `node:18-alpine` to `node:20-slim` to match CI's Node 20 on glibc, so one `package-lock.json` is valid for both (see Fixed)
+- Removed the unused `pymupdf` dependency (never imported — all PDF/OCR extraction goes through `pdfplumber`)
+- Pinned the Qdrant image to `v1.17.1` instead of `:latest`, which had silently drifted well ahead of the `qdrant-client` version pin
+- `setup.sh` / `setup.bat` now generate a random Postgres password alongside the existing `SECRET_KEY` generation
+
 ## [0.2.0] - 2026-05-19
 
 ### Added

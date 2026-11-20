@@ -3,24 +3,25 @@
 The AI services (HybridRetriever and LLM) are mocked so tests run offline
 without any OpenAI API keys, Qdrant data, or ML model weights.
 """
+
 from __future__ import annotations
 
 import uuid
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.conftest import auth_headers
-from app.db.models import MatterMembership, QueryLog, UserRole
+from app.db.models import MatterMembership, QueryLog
 from app.retrieval.reranker import RankedResult
-
+from tests.conftest import auth_headers
 
 # ---------------------------------------------------------------------------
 # Shared mock helpers
 # ---------------------------------------------------------------------------
+
 
 def _mock_ranked_result(chunk_id: str = "chunk-1") -> RankedResult:
     """Build a minimal RankedResult for mocking retrieval output."""
@@ -39,10 +40,9 @@ def _mock_ranked_result(chunk_id: str = "chunk-1") -> RankedResult:
 # Non-streaming query
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
-async def test_query_returns_answer_and_sources(
-    async_client: AsyncClient, partner, matter
-) -> None:
+async def test_query_returns_answer_and_sources(async_client: AsyncClient, partner, matter) -> None:
     """Successful query returns a JSON answer with source citations."""
     mock_results = [_mock_ranked_result()]
 
@@ -97,9 +97,7 @@ async def test_query_no_results_returns_empty_answer(
 
 
 @pytest.mark.asyncio
-async def test_query_denied_for_non_member(
-    async_client: AsyncClient, associate, matter
-) -> None:
+async def test_query_denied_for_non_member(async_client: AsyncClient, associate, matter) -> None:
     """Users without matter access cannot query it — ethical wall holds."""
     response = await async_client.post(
         f"/api/v1/matters/{matter.id}/query",
@@ -161,10 +159,9 @@ async def test_query_logs_are_persisted(
 # Streaming query
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
-async def test_query_stream_returns_sse_events(
-    async_client: AsyncClient, partner, matter
-) -> None:
+async def test_query_stream_returns_sse_events(async_client: AsyncClient, partner, matter) -> None:
     """Streaming query returns text/event-stream with token, sources, done events."""
     mock_results = [_mock_ranked_result()]
 
@@ -192,7 +189,7 @@ async def test_query_stream_returns_sse_events(
     assert "text/event-stream" in response.headers["content-type"]
 
     raw = response.text
-    assert 'data:' in raw
+    assert "data:" in raw
     assert '"type": "token"' in raw or '"type":"token"' in raw
     assert '"type": "sources"' in raw or '"type":"sources"' in raw
     assert '"type": "done"' in raw or '"type":"done"' in raw
@@ -201,6 +198,7 @@ async def test_query_stream_returns_sse_events(
 # ---------------------------------------------------------------------------
 # Query audit log endpoint
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_get_query_logs_partner_sees_all(
@@ -314,3 +312,143 @@ async def test_get_query_logs_non_member_denied(
         headers=auth_headers(associate),
     )
     assert response.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Query log export (.docx)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_export_logs_returns_docx(
+    async_client: AsyncClient, partner, matter, test_db: AsyncSession
+) -> None:
+    """Export returns a real .docx whose content includes the matter's
+    query history."""
+    from io import BytesIO
+
+    from docx import Document as DocxDocument
+
+    test_db.add(
+        QueryLog(
+            id=str(uuid.uuid4()),
+            user_id=partner.id,
+            matter_id=matter.id,
+            query_text="What is the termination clause?",
+            answer_text="The agreement terminates after two years.",
+            source_chunk_ids=[],
+        )
+    )
+    await test_db.commit()
+
+    response = await async_client.get(
+        f"/api/v1/matters/{matter.id}/query/logs/export",
+        headers=auth_headers(partner),
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    assert "attachment" in response.headers["content-disposition"]
+
+    doc = DocxDocument(BytesIO(response.content))
+    full_text = "\n".join(p.text for p in doc.paragraphs)
+    assert matter.name in full_text
+    assert "What is the termination clause?" in full_text
+    assert "The agreement terminates after two years." in full_text
+
+
+@pytest.mark.asyncio
+async def test_export_logs_associate_sees_own_only(
+    async_client: AsyncClient,
+    partner,
+    associate,
+    matter,
+    test_db: AsyncSession,
+) -> None:
+    """Export respects the same per-role visibility as the logs endpoint —
+    associates never see partner-only queries in their export."""
+    from io import BytesIO
+
+    from docx import Document as DocxDocument
+
+    test_db.add(
+        MatterMembership(
+            id=str(uuid.uuid4()),
+            user_id=associate.id,
+            matter_id=matter.id,
+            granted_by=partner.id,
+        )
+    )
+    test_db.add(
+        QueryLog(
+            id=str(uuid.uuid4()),
+            user_id=partner.id,
+            matter_id=matter.id,
+            query_text="Secret partner-only query",
+            answer_text="Secret answer",
+            source_chunk_ids=[],
+        )
+    )
+    test_db.add(
+        QueryLog(
+            id=str(uuid.uuid4()),
+            user_id=associate.id,
+            matter_id=matter.id,
+            query_text="My own query",
+            answer_text="My own answer",
+            source_chunk_ids=[],
+        )
+    )
+    await test_db.commit()
+
+    response = await async_client.get(
+        f"/api/v1/matters/{matter.id}/query/logs/export",
+        headers=auth_headers(associate),
+    )
+    assert response.status_code == 200
+
+    doc = DocxDocument(BytesIO(response.content))
+    full_text = "\n".join(p.text for p in doc.paragraphs)
+    assert "My own query" in full_text
+    assert "Secret partner-only query" not in full_text
+
+
+@pytest.mark.asyncio
+async def test_export_logs_empty_matter(async_client: AsyncClient, partner, matter) -> None:
+    """Exporting a matter with no queries yet still returns a valid document
+    rather than erroring."""
+    from io import BytesIO
+
+    from docx import Document as DocxDocument
+
+    response = await async_client.get(
+        f"/api/v1/matters/{matter.id}/query/logs/export",
+        headers=auth_headers(partner),
+    )
+    assert response.status_code == 200
+
+    doc = DocxDocument(BytesIO(response.content))
+    full_text = "\n".join(p.text for p in doc.paragraphs)
+    assert "No queries recorded" in full_text
+
+
+@pytest.mark.asyncio
+async def test_export_logs_non_member_denied(async_client: AsyncClient, associate, matter) -> None:
+    """Non-members cannot export a matter's query history."""
+    response = await async_client.get(
+        f"/api/v1/matters/{matter.id}/query/logs/export",
+        headers=auth_headers(associate),
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_export_logs_unknown_matter_404(async_client: AsyncClient, partner) -> None:
+    """Exporting a non-existent matter returns 404, not a 500."""
+    response = await async_client.get(
+        f"/api/v1/matters/{uuid.uuid4()}/query/logs/export",
+        headers=auth_headers(partner),
+    )
+    assert response.status_code in (403, 404)

@@ -296,6 +296,25 @@ function MatterCard({
             <p className="text-xs text-slate-400">All active team members are already on this matter.</p>
           )}
 
+          {/* Matter ID — shown for folder-watch / API use */}
+          <div className="border-t border-slate-100 pt-2 mt-1">
+            <p className="text-xs text-slate-400 mb-1 font-medium">Matter ID</p>
+            <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-1.5">
+              <code className="text-xs text-slate-600 font-mono flex-1 truncate select-all">{matter.id}</code>
+              <button
+                onClick={() => { navigator.clipboard.writeText(matter.id) }}
+                title="Copy matter ID"
+                className="shrink-0 text-slate-400 hover:text-blue-600 transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+
           {/* Danger zone */}
           <div className="border-t border-red-100 pt-3 mt-1">
             <button

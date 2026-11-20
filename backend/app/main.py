@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,7 +39,28 @@ async def lifespan(app: FastAPI):
     services.init(settings)
     logger.info("Services ready — application is up")
 
+    # Start folder-watch connector — auto-ingest files dropped into
+    # {watch_folder}/{matter_id}/filename.pdf
+    _folder_connector = None
+    try:
+        from app.connectors.folder_watch import FolderWatchConnector, make_ingest_callback
+
+        watch_root = Path(settings.watch_folder)
+        watch_root.mkdir(parents=True, exist_ok=True)
+        loop = asyncio.get_running_loop()
+        _folder_connector = FolderWatchConnector(str(watch_root))
+        _folder_connector.start_watching(make_ingest_callback(watch_root, loop))
+        logger.info(
+            f"Folder watch active — drop files at "
+            f"{watch_root}/<matter_id>/filename.pdf to auto-ingest"
+        )
+    except ImportError:
+        logger.warning("watchdog not installed — folder-watch connector disabled")
+
     yield
+
+    if _folder_connector is not None:
+        _folder_connector.stop_watching()
 
     logger.info("Application shutdown")
 

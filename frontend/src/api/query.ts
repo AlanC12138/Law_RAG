@@ -81,4 +81,13 @@ export const queryApi = {
     const res = await client.get(`/matters/${matterId}/query/logs`)
     return res.data
   },
+
+  exportLogs: async (matterId: string): Promise<Blob> => {
+    const token = localStorage.getItem('access_token')
+    const response = await fetch(`/api/v1/matters/${matterId}/query/logs/export`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!response.ok) throw new Error(`Export failed (${response.status})`)
+    return response.blob()
+  },
 }

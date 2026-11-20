@@ -3,6 +3,7 @@
 Document upload tests mock the ingestion pipeline so tests don't require
 real ML models or a running Qdrant instance.
 """
+
 from __future__ import annotations
 
 import io
@@ -13,13 +14,13 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.models import Document, DocumentStatus
 from tests.conftest import auth_headers
-from app.db.models import Document, DocumentStatus, MatterMembership, UserRole
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def pdf_upload(filename: str = "contract.pdf") -> tuple[str, tuple]:
     """Return a (field_name, (filename, bytes, content_type)) tuple for multipart."""
@@ -29,12 +30,20 @@ def pdf_upload(filename: str = "contract.pdf") -> tuple[str, tuple]:
 
 def docx_upload(filename: str = "brief.docx") -> tuple[str, tuple]:
     content = b"PK fake docx content"
-    return ("file", (filename, io.BytesIO(content), "application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+    return (
+        "file",
+        (
+            filename,
+            io.BytesIO(content),
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
 # POST /matters/{id}/documents
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_upload_pdf(
@@ -91,6 +100,50 @@ async def test_upload_invalid_type(
 
 
 @pytest.mark.asyncio
+async def test_upload_rejects_oversized_file(
+    async_client: AsyncClient, partner, matter, tmp_path, monkeypatch
+) -> None:
+    """Files larger than MAX_UPLOAD_SIZE_MB are rejected with 413 and nothing
+    is persisted to disk."""
+    monkeypatch.setattr("app.api.routes.documents.settings.data_dir", str(tmp_path))
+    monkeypatch.setattr("app.api.routes.documents.settings.max_upload_size_mb", 1)
+
+    oversized = b"%PDF-1.4" + b"x" * (2 * 1024 * 1024)  # 2 MB against a 1 MB limit
+    with patch("app.api.routes.documents._pipeline.run", new_callable=AsyncMock):
+        response = await async_client.post(
+            f"/api/v1/matters/{matter.id}/documents",
+            headers=auth_headers(partner),
+            files=[("file", ("huge.pdf", io.BytesIO(oversized), "application/pdf"))],
+        )
+
+    assert response.status_code == 413
+    assert "maximum upload size" in response.json()["detail"].lower()
+    # The rejected upload must not have been written to disk
+    assert not list(tmp_path.rglob("*.pdf"))
+
+
+@pytest.mark.asyncio
+async def test_upload_accepts_file_under_limit(
+    async_client: AsyncClient, partner, matter, tmp_path, monkeypatch
+) -> None:
+    """A file under the limit still uploads normally — the new size check must
+    not reject valid uploads."""
+    monkeypatch.setattr("app.api.routes.documents.settings.data_dir", str(tmp_path))
+    monkeypatch.setattr("app.api.routes.documents.settings.max_upload_size_mb", 1)
+
+    content = b"%PDF-1.4" + b"x" * 1024  # ~1 KB
+    with patch("app.api.routes.documents._pipeline.run", new_callable=AsyncMock):
+        response = await async_client.post(
+            f"/api/v1/matters/{matter.id}/documents",
+            headers=auth_headers(partner),
+            files=[("file", ("small.pdf", io.BytesIO(content), "application/pdf"))],
+        )
+
+    assert response.status_code == 201
+    assert response.json()["filename"] == "small.pdf"
+
+
+@pytest.mark.asyncio
 async def test_upload_denied_without_matter_access(
     async_client: AsyncClient, associate, matter, tmp_path, monkeypatch
 ) -> None:
@@ -123,6 +176,7 @@ async def test_upload_matter_not_found(
 # ---------------------------------------------------------------------------
 # GET /matters/{id}/documents
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_list_documents(
@@ -171,6 +225,7 @@ async def test_list_documents_non_member_denied(
 # GET /matters/{id}/documents/{doc_id}
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_get_document(
     async_client: AsyncClient,
@@ -203,9 +258,7 @@ async def test_get_document(
 
 
 @pytest.mark.asyncio
-async def test_get_document_not_found(
-    async_client: AsyncClient, partner, matter
-) -> None:
+async def test_get_document_not_found(async_client: AsyncClient, partner, matter) -> None:
     response = await async_client.get(
         f"/api/v1/matters/{matter.id}/documents/{uuid.uuid4()}",
         headers=auth_headers(partner),
@@ -216,6 +269,7 @@ async def test_get_document_not_found(
 # ---------------------------------------------------------------------------
 # DELETE /matters/{id}/documents/{doc_id}
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_delete_document(
@@ -255,9 +309,7 @@ async def test_delete_document(
 
 
 @pytest.mark.asyncio
-async def test_delete_document_not_found(
-    async_client: AsyncClient, partner, matter
-) -> None:
+async def test_delete_document_not_found(async_client: AsyncClient, partner, matter) -> None:
     response = await async_client.delete(
         f"/api/v1/matters/{matter.id}/documents/{uuid.uuid4()}",
         headers=auth_headers(partner),

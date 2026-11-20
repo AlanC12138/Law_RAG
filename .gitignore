@@ -80,3 +80,11 @@ coverage.xml
 *.log
 .envrc
 .direnv
+
+# Claude Code local tooling (machine-specific)
+.claude/launch.json
+.claude/settings.local.json
+.claude/worktrees/
+
+# Scratch documents used for manual testing (not referenced by the test suite)
+test_nda.docx

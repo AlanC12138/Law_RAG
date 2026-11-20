@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     data_dir: str = "./data"
     max_chunk_size: int = 512
     chunk_overlap: int = 50
+    # Largest single upload accepted, in megabytes. Uploads are read in
+    # chunks and rejected as soon as this is exceeded, so an oversized
+    # file is never fully buffered or written to disk.
+    max_upload_size_mb: int = 50
 
     # ── Seed admin user ───────────────────────────────────────────────────────
     admin_email: str = "admin@lawfirm.local"

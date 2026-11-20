@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum as PyEnum
 from typing import Any
 
-from sqlalchemy import Enum, ForeignKey, JSON, String
+from sqlalchemy import JSON, DateTime, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -37,10 +37,13 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(String(255))
     full_name: Mapped[str] = mapped_column(String(255))
-    role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.ASSOCIATE)
+    role: Mapped[UserRole] = mapped_column(
+        Enum(UserRole, values_callable=lambda enum_cls: [e.value for e in enum_cls]),
+        default=UserRole.ASSOCIATE,
+    )
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(timezone.utc), server_default=func.now()
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
     )
 
     matters: Mapped[list[Matter]] = relationship(
@@ -63,7 +66,7 @@ class Matter(Base):
     jurisdiction: Mapped[str] = mapped_column(String(255), default="")
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(timezone.utc), server_default=func.now()
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
     )
 
     documents: Mapped[list[Document]] = relationship(back_populates="matter", lazy="selectin")
@@ -84,7 +87,7 @@ class MatterMembership(Base):
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), index=True)
     matter_id: Mapped[str] = mapped_column(String(36), ForeignKey("matters.id"), index=True)
     granted_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(timezone.utc), server_default=func.now()
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
     )
     granted_by: Mapped[str] = mapped_column(String(36), default="")
 
@@ -100,15 +103,16 @@ class Document(Base):
     file_type: Mapped[str] = mapped_column(String(50))
     storage_path: Mapped[str] = mapped_column(String(500))
     status: Mapped[DocumentStatus] = mapped_column(
-        Enum(DocumentStatus), default=DocumentStatus.PENDING
+        Enum(DocumentStatus, values_callable=lambda enum_cls: [e.value for e in enum_cls]),
+        default=DocumentStatus.PENDING,
     )
     page_count: Mapped[int] = mapped_column(default=0)
     metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     summary: Mapped[str | None] = mapped_column(String(2000), nullable=True, default=None)
     clauses_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True, default=None)
-    ingested_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    ingested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(timezone.utc), server_default=func.now()
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
     )
 
     matter: Mapped[Matter] = relationship(back_populates="documents")
@@ -126,7 +130,7 @@ class QueryLog(Base):
     answer_text: Mapped[str] = mapped_column(String(4000))
     source_chunk_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(timezone.utc), server_default=func.now()
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
     )
 
     user: Mapped[User] = relationship(back_populates="query_logs")

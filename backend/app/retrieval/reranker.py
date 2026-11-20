@@ -25,8 +25,8 @@ class RankedResult:
     text: str
     page_number: int
     section_title: str
-    rerank_score: float     # Cross-encoder logit (higher = more relevant)
-    original_score: float   # Fusion score from the hybrid step
+    rerank_score: float  # Cross-encoder logit (higher = more relevant)
+    original_score: float  # Fusion score from the hybrid step
 
 
 class CrossEncoderReranker:

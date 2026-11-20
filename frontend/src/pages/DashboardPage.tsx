@@ -6,7 +6,7 @@ import ChatPanel from '../components/ChatPanel'
 import DocumentsPanel from '../components/DocumentsPanel'
 import HistoryPanel from '../components/HistoryPanel'
 import Sidebar from '../components/Sidebar'
-import type { Matter, User } from '../types'
+import type { Matter, SourceReference, User } from '../types'
 
 type Tab = 'chat' | 'documents' | 'history'
 
@@ -107,6 +107,8 @@ export default function DashboardPage() {
   const [loadingMatters, setLoadingMatters] = useState(true)
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [showNewMatter, setShowNewMatter] = useState(false)
+  const [highlightDocId, setHighlightDocId] = useState<string | null>(null)
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -134,6 +136,13 @@ export default function DashboardPage() {
     setSelectedMatter(matter)
     setShowNewMatter(false)
     setActiveTab('chat')
+  }
+
+  const handleSourceClick = (src: SourceReference) => {
+    setActiveTab('documents')
+    setHighlightDocId(src.doc_id)
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current)
+    highlightTimerRef.current = setTimeout(() => setHighlightDocId(null), 3000)
   }
 
   const handleLogout = () => {
@@ -275,8 +284,8 @@ export default function DashboardPage() {
               {/* Panel content — all three stay mounted so ChatPanel
                   preserves unsent input when the user switches tabs. */}
               <div className="flex-1 overflow-hidden">
-                <div className={`h-full ${activeTab === 'chat'      ? '' : 'hidden'}`}><ChatPanel      matter={selectedMatter} /></div>
-                <div className={`h-full ${activeTab === 'documents' ? '' : 'hidden'}`}><DocumentsPanel matter={selectedMatter} /></div>
+                <div className={`h-full ${activeTab === 'chat'      ? '' : 'hidden'}`}><ChatPanel      matter={selectedMatter} onSourceClick={handleSourceClick} /></div>
+                <div className={`h-full ${activeTab === 'documents' ? '' : 'hidden'}`}><DocumentsPanel matter={selectedMatter} highlightDocId={highlightDocId} /></div>
                 <div className={`h-full ${activeTab === 'history'   ? '' : 'hidden'}`}><HistoryPanel   matter={selectedMatter} /></div>
               </div>
             </div>

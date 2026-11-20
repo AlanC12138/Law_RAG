@@ -2,12 +2,12 @@ name: Backend CI
 
 on:
   push:
-    branches: [main, dev]
+    branches: [master, dev]
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
   pull_request:
-    branches: [main, dev]
+    branches: [master, dev]
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
@@ -35,11 +35,19 @@ jobs:
         uses: actions/cache@v4
         with:
           path: backend/.venv
-          key: venv-${{ runner.os }}-3.11-${{ hashFiles('backend/poetry.lock') }}
+          # Hash pyproject.toml as well as the lock file: if poetry.lock is
+          # ever missing, hashFiles() returns "" and the key would otherwise
+          # be constant — silently pinning CI to a stale venv forever, since
+          # the install step below is skipped on a cache hit.
+          key: venv-${{ runner.os }}-3.11-${{ hashFiles('backend/poetry.lock', 'backend/pyproject.toml') }}
 
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: cd backend && poetry install --with dev
+        # --no-root matches the Dockerfile: the app runs from the source tree
+        # (pytest picks it up via backend/conftest.py), it is never installed
+        # as a package. Without this, poetry builds the root project and fails
+        # on `readme = "README.md"`, which does not exist in backend/.
+        run: cd backend && poetry install --with dev --no-root
 
       - name: Run Ruff
         run: cd backend && poetry run ruff check .
@@ -69,17 +77,113 @@ jobs:
         uses: actions/cache@v4
         with:
           path: backend/.venv
-          key: venv-${{ runner.os }}-3.11-${{ hashFiles('backend/poetry.lock') }}
+          # Hash pyproject.toml as well as the lock file: if poetry.lock is
+          # ever missing, hashFiles() returns "" and the key would otherwise
+          # be constant — silently pinning CI to a stale venv forever, since
+          # the install step below is skipped on a cache hit.
+          key: venv-${{ runner.os }}-3.11-${{ hashFiles('backend/poetry.lock', 'backend/pyproject.toml') }}
 
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: cd backend && poetry install --with dev
+        # --no-root matches the Dockerfile: the app runs from the source tree
+        # (pytest picks it up via backend/conftest.py), it is never installed
+        # as a package. Without this, poetry builds the root project and fails
+        # on `readme = "README.md"`, which does not exist in backend/.
+        run: cd backend && poetry install --with dev --no-root
 
       - name: Run tests
         env:
           OPENAI_API_KEY: sk-test-placeholder
-          SECRET_KEY: test-secret-key-for-ci-at-least-32-chars!!
-          DATABASE_URL: sqlite+aiosqlite:///:memory:
+          SECRET_KEY: "test-secret-key-for-ci-at-least-32-chars!!"
+          # Must be quoted — a plain YAML scalar cannot end in ':', so the
+          # unquoted form made this whole workflow file unparseable.
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
           QDRANT_PATH: /tmp/qdrant_test
           APP_ENV: test
         run: cd backend && poetry run pytest --asyncio-mode=auto -v
+
+  migrate:
+    name: Migrate (Alembic against Postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: law_rag
+          POSTGRES_PASSWORD: ci-test-password
+          POSTGRES_DB: law_rag
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U law_rag"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-in-project: true
+
+      - name: Cache venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: backend/.venv
+          # Hash pyproject.toml as well as the lock file: if poetry.lock is
+          # ever missing, hashFiles() returns "" and the key would otherwise
+          # be constant — silently pinning CI to a stale venv forever, since
+          # the install step below is skipped on a cache hit.
+          key: venv-${{ runner.os }}-3.11-${{ hashFiles('backend/poetry.lock', 'backend/pyproject.toml') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        # --no-root matches the Dockerfile: the app runs from the source tree
+        # (pytest picks it up via backend/conftest.py), it is never installed
+        # as a package. Without this, poetry builds the root project and fails
+        # on `readme = "README.md"`, which does not exist in backend/.
+        run: cd backend && poetry install --with dev --no-root
+
+      # SECRET_KEY is a required Settings field with no default, and
+      # alembic/env.py calls get_settings() at import — without it the
+      # migration fails with a pydantic ValidationError before touching
+      # the database. (backend/.env supplies it locally, but that file is
+      # gitignored and therefore absent in CI.)
+      - name: Run alembic upgrade head against a real Postgres
+        env:
+          DATABASE_URL: "postgresql+asyncpg://law_rag:ci-test-password@localhost:5432/law_rag"
+          SECRET_KEY: "test-secret-key-for-ci-at-least-32-chars!!"
+        run: cd backend && poetry run alembic upgrade head
+
+      - name: Verify every model table was created
+        env:
+          DATABASE_URL: "postgresql+asyncpg://law_rag:ci-test-password@localhost:5432/law_rag"
+          SECRET_KEY: "test-secret-key-for-ci-at-least-32-chars!!"
+        run: |
+          cd backend && poetry run python -c "
+          import asyncio
+          from sqlalchemy import inspect
+          from sqlalchemy.ext.asyncio import create_async_engine
+          from app.db.base import Base
+          from app.db import models  # noqa: F401
+
+          async def main():
+              engine = create_async_engine('postgresql+asyncpg://law_rag:ci-test-password@localhost:5432/law_rag')
+              async with engine.connect() as conn:
+                  tables = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
+              await engine.dispose()
+              expected = set(Base.metadata.tables.keys())
+              missing = expected - set(tables)
+              assert not missing, f'Migration did not create: {missing}'
+              print(f'All {len(expected)} tables present after migration: {sorted(expected)}')
+
+          asyncio.run(main())
+          "

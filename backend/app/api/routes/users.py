@@ -22,6 +22,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 # Request / response models
 # ---------------------------------------------------------------------------
 
+
 class UserCreate(BaseModel):
     """Payload for creating a new user account."""
 
@@ -55,6 +56,7 @@ class UserUpdate(BaseModel):
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+
 
 @router.get("", response_model=list[UserResponse])
 async def list_users(
@@ -208,6 +210,7 @@ async def deactivate_user(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _to_response(user: User) -> UserResponse:
     return UserResponse(

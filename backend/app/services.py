@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Application-level singletons.
 
 Heavy objects — the vector store, embedding model, cross-encoder reranker,
@@ -20,6 +18,8 @@ From a FastAPI dependency or route:
     retriever = services.get_hybrid_retriever()   # guarded accessor
     llm       = services.get_llm()
 """
+
+from __future__ import annotations
 
 import logging
 
@@ -63,12 +63,14 @@ def init(settings: Settings) -> None:
     # ── Embedding provider ────────────────────────────────────────────────────
     if settings.llm_provider == "ollama":
         from app.embeddings.ollama_embeddings import OllamaEmbeddingProvider
+
         embedder = OllamaEmbeddingProvider(
             model=settings.ollama_embedding_model,
             base_url=settings.ollama_base_url,
         )
     else:
         from app.embeddings.openai_embeddings import OpenAIEmbeddingProvider
+
         embedder = OpenAIEmbeddingProvider(
             model=settings.embedding_model,
             api_key=settings.openai_api_key,
@@ -87,6 +89,7 @@ def init(settings: Settings) -> None:
     # ── LLM provider ─────────────────────────────────────────────────────────
     if settings.llm_provider == "ollama":
         from app.llm.ollama_provider import OllamaProvider
+
         llm = OllamaProvider(
             model=settings.ollama_llm_model,
             base_url=settings.ollama_base_url,
@@ -97,6 +100,7 @@ def init(settings: Settings) -> None:
         )
     else:
         from app.llm.openai_provider import OpenAIProvider
+
         llm = OpenAIProvider(
             model=settings.llm_model,
             api_key=settings.openai_api_key,
