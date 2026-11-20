@@ -24,7 +24,7 @@ Law RAG lets your legal team ask plain-English questions about case files and ge
 
 ## Status
 
-**Verified on 2026-11-20** — `main` at `185d9c87`.
+**Verified on 2026-11-20**, at commit `f083d21`. The checks below were run against that tree; later commits are not covered by this table.
 
 | Check | Result |
 |---|---|

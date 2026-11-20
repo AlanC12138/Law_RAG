@@ -2,7 +2,7 @@
 
 > All technology choices for the project. Each entry includes the rationale and any key constraints or alternatives considered.
 
-> **Verified on 2026-11-20** against the code on `main` (`185d9c87`). Every row
+> **Verified on 2026-11-20** against the code at commit `f083d21`. Every row
 > below was checked against `backend/pyproject.toml`, `backend/poetry.lock`,
 > `frontend/package.json`, `docker-compose.yml` and the source tree.
 
