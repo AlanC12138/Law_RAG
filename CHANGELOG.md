@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.0] - 2026-11-20
 
-Merged to `master` in `185d9c87`. Verified on 2026-11-20: 75/75 backend tests,
+Merged to the default branch in `185d9c87`. Verified on 2026-11-20: 75/75 backend tests,
 ruff, black, ESLint and `tsc && vite build` all clean; Alembic migrations applied
 against PostgreSQL 16.
 

@@ -101,7 +101,7 @@ The application ships with an auto-update mechanism:
 ## 7. Version Control
 
 Git is used from day one. The repository is structured for long-term maintainability:
-- Branching strategy: `master` (stable) → `dev` → feature branches
+- Branching strategy: `main` (stable) → `dev` → feature branches
 - Commits are atomic and descriptive
 - All breaking changes documented in `CHANGELOG.md`
 - Semantic versioning (`MAJOR.MINOR.PATCH`)

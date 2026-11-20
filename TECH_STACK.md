@@ -2,7 +2,7 @@
 
 > All technology choices for the project. Each entry includes the rationale and any key constraints or alternatives considered.
 
-> **Verified on 2026-11-20** against the code on `master` (`185d9c87`). Every row
+> **Verified on 2026-11-20** against the code on `main` (`185d9c87`). Every row
 > below was checked against `backend/pyproject.toml`, `backend/poetry.lock`,
 > `frontend/package.json`, `docker-compose.yml` and the source tree.
 
@@ -73,7 +73,7 @@
 | Version control | Git | GitHub (or self-hosted) |
 | Versioning | Semantic Versioning (`MAJOR.MINOR.PATCH`) | |
 | Changelog | `CHANGELOG.md` (Keep a Changelog format) | |
-| CI | GitHub Actions | On push to `master` and `dev`: ruff, black, pytest, Alembic against a real Postgres, ESLint, and a TypeScript + Vite build |
+| CI | GitHub Actions | On push to `main` and `dev`: ruff, black, pytest, Alembic against a real Postgres, ESLint, and a TypeScript + Vite build |
 | Backend linting | `ruff` | Fast, replaces flake8 + isort + pyupgrade |
 | Backend formatting | `black` | |
 | Frontend linting | ESLint | `--max-warnings 0`; Prettier is not installed |
