@@ -29,7 +29,7 @@ against PostgreSQL 16.
 - `verify_token()` now checks the JWT `type` claim — closes a gap where a refresh token could previously be used directly as an access token
 - `backend/conftest.py` stubbed `python-docx` with a fake class that didn't support the methods the new export endpoint needs; removed the stub since python-docx is lightweight enough to run for real in tests
 
-- **Upload size limit** — documents larger than `MAX_UPLOAD_SIZE_MB` (default 50 MB) are rejected with HTTP 413. The upload is read in chunks and aborted as soon as the limit is exceeded, so an oversized file is never fully buffered in memory or written to disk
+- **Upload size limit** — documents larger than `MAX_UPLOAD_SIZE_MB` (default 50 MB) are rejected with HTTP 413. The upload is read in 1 MB chunks and aborted as soon as the running total crosses the limit, so an oversized upload costs at most the limit in memory instead of its full size and never reaches disk. Note that a file *within* the limit is still buffered in full before it is written, so the ceiling on memory per upload is the limit itself, not a small constant
 
 ### Changed
 - Removed the unused `@tanstack/react-query` dependency and its `QueryClientProvider` wiring — it was installed and mounted but never used anywhere; the app hand-rolls its data fetching. Drops the production bundle from 292 kB to 263 kB (90.9 kB → 82.4 kB gzipped)

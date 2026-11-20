@@ -98,7 +98,8 @@ async def upload_document(
 
     # Read file bytes before the request context closes.
     # Read in chunks and bail out as soon as the size limit is exceeded, so an
-    # oversized upload is never fully buffered in memory or written to disk.
+    # oversized upload costs at most max_bytes (+1 chunk) rather than its full
+    # size. A file within the limit is still buffered whole before it is written.
     max_bytes = settings.max_upload_size_mb * 1024 * 1024
     chunks: list[bytes] = []
     total_bytes = 0

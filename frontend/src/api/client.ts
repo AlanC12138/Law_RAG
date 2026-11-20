@@ -23,6 +23,16 @@ function logoutAndRedirect() {
   window.location.href = '/login'
 }
 
+// Endpoints where a 401 is the honest answer rather than an expired session.
+// Refreshing cannot help here, and redirecting would be actively wrong: a
+// failed login reloads /login and discards the error LoginPage just set, so
+// the user sees a blank form instead of "Invalid credentials".
+const NO_REFRESH_PATHS = ['/auth/login', '/auth/refresh']
+
+function isAuthEndpoint(url: string | undefined): boolean {
+  return url !== undefined && NO_REFRESH_PATHS.some((path) => url.startsWith(path))
+}
+
 // Concurrent 401s share one in-flight refresh call instead of each
 // firing their own — avoids redundant requests and races on localStorage.
 let refreshPromise: Promise<string> | null = null
@@ -50,7 +60,11 @@ client.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config as RetryableConfig | undefined
 
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retried) {
+    if (error.response?.status !== 401 || isAuthEndpoint(originalRequest?.url)) {
+      return Promise.reject(error)
+    }
+
+    if (originalRequest && !originalRequest._retried) {
       originalRequest._retried = true
       try {
         if (!refreshPromise) {
@@ -68,9 +82,7 @@ client.interceptors.response.use(
       }
     }
 
-    if (error.response?.status === 401) {
-      logoutAndRedirect()
-    }
+    logoutAndRedirect()
     return Promise.reject(error)
   }
 )
