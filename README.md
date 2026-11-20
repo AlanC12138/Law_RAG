@@ -254,3 +254,9 @@ vector database, model download or API key is needed. Lint with
 `poetry run ruff check .` and `poetry run black --check .`.
 
 See [INSTRUCTIONS.md](INSTRUCTIONS.md) for architecture decisions, branching strategy, and contribution guidelines.
+
+---
+
+## License
+
+Released under the [MIT License](LICENSE). Copyright (c) 2026 Ying Lun Chen.

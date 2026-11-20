@@ -2,7 +2,7 @@
 name = "law-rag-backend"
 version = "0.3.0"
 description = "Legal document RAG system backend"
-authors = ["Law RAG Team"]
+authors = ["Ying Lun Chen"]
 license = "MIT"
 packages = [{include = "app"}]
 
