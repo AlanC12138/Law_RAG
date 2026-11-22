@@ -1,0 +1,59 @@
+version: 2
+
+# Updates open against `dev`, not the default branch: `dev` is the integration
+# branch here and is what CI gates, so dependency bumps flow through the same
+# path as every other change rather than landing straight on `main`.
+updates:
+  # ── Backend (Poetry) ──────────────────────────────────────────────────────
+  # The `pip` ecosystem covers Poetry projects: Dependabot reads
+  # backend/pyproject.toml and updates backend/poetry.lock.
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    target-branch: "dev"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "backend"
+    groups:
+      # One PR for routine patch/minor bumps keeps the noise down; majors
+      # still arrive as individual PRs so they get read properly.
+      backend-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ── Frontend (npm) ────────────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    target-branch: "dev"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "frontend"
+    groups:
+      frontend-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ── GitHub Actions ────────────────────────────────────────────────────────
+  # actions/checkout, setup-python, setup-node, cache and snok/install-poetry
+  # are all pinned by major tag; this keeps them current.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "dev"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+      - "ci"
