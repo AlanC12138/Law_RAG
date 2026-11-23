@@ -41,6 +41,13 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # Pinned to 0.4.x: 0.5.0 requires eslint ^9 || ^10 and this project is
+      # on eslint ^8, so the bump fails `npm install` outright with ERESOLVE
+      # and takes the whole grouped PR down with it. Dependabot classifies a
+      # 0.x minor as "minor", so the semver-major rule above does not catch
+      # it. Lift this when eslint is migrated to 9 (needs flat config).
+      - dependency-name: "eslint-plugin-react-refresh"
+        update-types: ["version-update:semver-minor"]
     groups:
       frontend:
         patterns:
