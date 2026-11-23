@@ -14,6 +14,12 @@ updates:
   - package-ecosystem: "pip"
     directory: "/backend"
     target-branch: "dev"
+    # Update the lock file only; never rewrite the constraints in
+    # pyproject.toml / package.json. Dependabot's default "widen" behaviour
+    # on caret ranges turns `ruff = "^0.4.0"` into `>=0.4,<0.18`, which
+    # unpins the linter across 13 minor versions — and ruff's rule set
+    # changes between them, so lint results stop being reproducible.
+    versioning-strategy: lockfile-only
     schedule:
       interval: "monthly"
     open-pull-requests-limit: 5
@@ -32,6 +38,10 @@ updates:
   - package-ecosystem: "npm"
     directory: "/frontend"
     target-branch: "dev"
+    # Lock file only — leave the ranges in package.json alone. This is an
+    # application, not a library, so the lock is what actually ships; the
+    # declared ranges only need to stay honest.
+    versioning-strategy: lockfile-only
     schedule:
       interval: "monthly"
     open-pull-requests-limit: 5
