@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Schema drift between the ORM models and the migrations.** `documents.metadata_json` and `query_logs.source_chunk_ids` were nullable in the database but declared NOT NULL on the models, so the ORM could return `None` for a field typed as a `dict`/`list`; and `users.email` carried a `UNIQUE` constraint plus a plain index where the model describes a single unique index. Migration `004` reconciles all three (backfilling both columns before tightening them). Email was unique throughout — but the index mismatch made autogenerate report drift on every run, which is how the two nullable divergences stayed invisible
+
+### Changed
+- CI now runs `alembic check` against a real PostgreSQL after applying migrations, so a model changed without a matching migration fails the build instead of passing the suite — which builds its tables from the models — and breaking on deploy
+- Pinned Poetry to `2.4.1` in CI (the version that generated `poetry.lock`) instead of `latest`, and added `permissions: contents: read` to both workflows
+- Dependabot runs monthly with grouped updates and ignores semver-majors
+
 ## [0.3.0] - 2026-11-20
 
 Merged to the default branch in `185d9c87`. Verified on 2026-11-20: 75/75 backend tests,
