@@ -3,6 +3,10 @@ version: 2
 # Updates open against `dev`, not the default branch: `dev` is the integration
 # branch here and is what CI gates, so dependency bumps flow through the same
 # path as every other change rather than landing straight on `main`.
+#
+# Monthly, grouped, and semver-majors ignored. Majors are the ones that need a
+# human reading release notes, and an auto-opened major PR mostly sits there
+# going stale — bump those deliberately instead.
 updates:
   # ── Backend (Poetry) ──────────────────────────────────────────────────────
   # The `pip` ecosystem covers Poetry projects: Dependabot reads
@@ -11,44 +15,41 @@ updates:
     directory: "/backend"
     target-branch: "dev"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "backend"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
-      # One PR for routine patch/minor bumps keeps the noise down; majors
-      # still arrive as individual PRs so they get read properly.
-      backend-minor-and-patch:
+      backend:
         patterns:
           - "*"
-        update-types:
-          - "minor"
-          - "patch"
 
   # ── Frontend (npm) ────────────────────────────────────────────────────────
   - package-ecosystem: "npm"
     directory: "/frontend"
     target-branch: "dev"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "frontend"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
-      frontend-minor-and-patch:
+      frontend:
         patterns:
           - "*"
-        update-types:
-          - "minor"
-          - "patch"
 
   # ── GitHub Actions ────────────────────────────────────────────────────────
-  # actions/checkout, setup-python, setup-node, cache and snok/install-poetry
-  # are all pinned by major tag; this keeps them current.
+  # Keeps actions/checkout, setup-python, setup-node, cache and
+  # snok/install-poetry on current majors so runs stop emitting deprecation
+  # annotations.
   - package-ecosystem: "github-actions"
     directory: "/"
     target-branch: "dev"
@@ -57,3 +58,7 @@ updates:
     labels:
       - "dependencies"
       - "ci"
+    groups:
+      actions:
+        patterns:
+          - "*"

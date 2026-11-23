@@ -12,6 +12,10 @@ on:
       - 'frontend/**'
       - '.github/workflows/frontend-ci.yml'
 
+# Least privilege: nothing here writes to the repo.
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint (ESLint)

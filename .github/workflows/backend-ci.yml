@@ -12,6 +12,11 @@ on:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
 
+# Least privilege: nothing here writes to the repo. Grant write per-job in
+# YAML if a future job ever needs it — never repo-wide in settings.
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint (Ruff & Black)
@@ -27,7 +32,7 @@ jobs:
       - name: Install Poetry
         uses: snok/install-poetry@v1
         with:
-          version: latest
+          version: "2.4.1"
           virtualenvs-in-project: true
 
       - name: Cache venv
@@ -69,7 +74,7 @@ jobs:
       - name: Install Poetry
         uses: snok/install-poetry@v1
         with:
-          version: latest
+          version: "2.4.1"
           virtualenvs-in-project: true
 
       - name: Cache venv
@@ -130,7 +135,7 @@ jobs:
       - name: Install Poetry
         uses: snok/install-poetry@v1
         with:
-          version: latest
+          version: "2.4.1"
           virtualenvs-in-project: true
 
       - name: Cache venv
@@ -162,6 +167,16 @@ jobs:
           DATABASE_URL: "postgresql+asyncpg://law_rag:ci-test-password@localhost:5432/law_rag"
           SECRET_KEY: "test-secret-key-for-ci-at-least-32-chars!!"
         run: cd backend && poetry run alembic upgrade head
+
+      # Schema drift: a model changed without a matching migration passes the
+      # test suite (which builds its own tables from the models) and only
+      # breaks on deploy. `alembic check` autogenerates against the migrated
+      # database and fails if it finds operations still to apply.
+      - name: Check for model/migration drift
+        env:
+          DATABASE_URL: "postgresql+asyncpg://law_rag:ci-test-password@localhost:5432/law_rag"
+          SECRET_KEY: "test-secret-key-for-ci-at-least-32-chars!!"
+        run: cd backend && poetry run alembic check
 
       - name: Verify every model table was created
         env:
